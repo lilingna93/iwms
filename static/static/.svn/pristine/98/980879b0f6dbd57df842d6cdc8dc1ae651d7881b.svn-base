@@ -1,0 +1,534 @@
+<template>
+  <Content :style="{padding: '0 16px 16px'}">
+    <Breadcrumb :style="{margin: '16px 0'}">
+      <BreadcrumbItem>系统账户管理</BreadcrumbItem>
+      <BreadcrumbItem>仓库账户管理</BreadcrumbItem>
+    </Breadcrumb>
+    <Card>
+      <div :style="{minHeight:contentHeight+'px'}">
+        <div style="display: flex;justify-content:space-between; ">
+          <span>
+            <span>项目组：</span>
+          <Select :label-in-value="true" v-model="search.waCode" @on-change="searchAccount" :transfer="true"
+                  :style="{width:'190px'}" :disabled="false">
+            <Option v-for="(item,key) in  warehouse" :value="item.war_code" :key="key">{{item.war_name}}</Option>
+          </Select>
+          </span>
+          <span>
+           <Button type="warning" style="margin-bottom: 10px;" @click="handleClick('add')">添加账户</Button>
+          </span>
+        </div>
+        <Table :height="tableHeight" border ref="selection" :columns="pageData.columns" :data="pageData.data"
+               :loading="loading"></Table>
+        <Page style="text-align: right;margin-top: 10px;" :total="pageData.totalCount" show-elevator show-total
+              :page-size="pageData.pageSize" :current="pageData.pageCurrent+1" @on-change="handleChange"></Page>
+        <Modal
+          v-model="modalData.accountAdd"
+          title="添加账户"
+          @on-ok="addAccount"
+          @on-visible-change="handleReset('addAccountData')" :styles="{width:'630px'}">
+          <Form :label-width="98" inline ref="addAccountData" :model="addAccountData">
+            <FormItem label="账户名称：" prop="woName">
+              <Input type="text" v-model="addAccountData.woName"></Input>
+            </FormItem>
+            <FormItem label="账户密码：" prop="woPwd">
+              <Input type="text" v-model="addAccountData.woPwd" style="width: 160px"></Input>
+              <Button type="success" size="small" @click="createPassword">生成</Button>
+            </FormItem>
+            <FormItem label="真实姓名：" prop="realName">
+              <Input type="text" v-model="addAccountData.realName"></Input>
+            </FormItem>
+            <FormItem label="手机号：">
+              <Input type="text" v-model="addAccountData.woPhone"></Input>
+            </FormItem>
+            <FormItem label="项目组：">
+              <Select :label-in-value="true" v-model="addAccountData.waCode" :transfer="true" :style="{width:'160px'}"
+                      :disabled="false">
+                <Option v-for="(item,key) in  minwarehouse" :value="item.war_code" :key="key">{{item.war_name}}</Option>
+              </Select>
+            </FormItem>
+            <FormItem label="账户钥匙：">
+              <Input type="text" readonly placeholder="系统自动生成"></Input>
+            </FormItem>
+            <FormItem label="开启小程序订单入仓时间:"  :label-width="168" >
+              <Checkbox v-model="single"></Checkbox>
+            </FormItem>
+            <FormItem label="功能权限：" prop="woAuth" style="margin-bottom: 8px">
+              <Checkbox v-for="item in authData" :key="item.authCode" v-model="item.checked">{{item.authName}}
+              </Checkbox>
+            </FormItem>
+            <FormItem label="全局权限：" style="margin-bottom: 8px">
+              <Checkbox v-for="item in authMsg" :key="item.authCode" v-model="item.checked">{{item.authName}}</Checkbox>
+            </FormItem>
+          </Form>
+        </Modal>
+        <Modal v-model="modalData.accountEdit" title="修改账户" @on-ok="editAccount" :styles="{width:'630px'}">
+          <Form :label-width="100" inline>
+            <FormItem label="账户名称：">
+              <Input type="text" readonly v-model="editAccountData.woName"></Input>
+            </FormItem>
+            <FormItem label="账户密码：">
+              <Input type="text" v-model="editAccountData.woPwd" style="width: 160px"></Input>
+              <Button type="success" size="small" @click="createEditPassword">生成</Button>
+            </FormItem>
+            <FormItem label="真实姓名：">
+              <Input type="text" readonly v-model="editAccountData.realName"></Input>
+            </FormItem>
+            <FormItem label="手机号：">
+              <Input type="text" v-model="editAccountData.woPhone"></Input>
+            </FormItem>
+            <FormItem label="项目组：">
+              <Select :label-in-value="true" v-model="editAccountData.waCode" :transfer="true" :style="{width:'160px'}">
+                <Option v-for="(item,key) in  minwarehouse" :value="item.war_code" :key="key">{{item.war_name}}</Option>
+              </Select>
+            </FormItem>
+            <FormItem label="账户钥匙:">
+              <Input type="text" readonly v-model="editAccountData.woToken"></Input>
+            </FormItem>
+            <FormItem label="开启小程序订单入仓时间:"  :label-width="168" >
+              <Checkbox v-model="single"></Checkbox>
+            </FormItem>
+            <FormItem label="功能权限：" style="margin-bottom: 8px">
+              <Checkbox v-for="item in authData" :key="item.authCode" v-model="item.checked">{{item.authName}}
+              </Checkbox>
+            </FormItem>
+            <FormItem label="全局权限：" style="margin-bottom: 8px">
+              <Checkbox v-for="item in authMsg" :key="item.authCode" v-model="item.checked">{{item.authName}}</Checkbox>
+            </FormItem>
+          </Form>
+        </Modal>
+      </div>
+    </Card>
+  </Content>
+</template>
+<script>
+  export default {
+    methods: {
+      createEditPassword() {
+        this.editAccountData.woPwd = this.randomPassword(8);
+      },
+      createPassword() {
+        this.addAccountData.woPwd = this.randomPassword(8);
+      },
+      randomPassword(size) {
+        let seed = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', '0', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        let seedlength = seed.length;
+        let createPassword = '';
+        for (let i = 0; i < size; i++) {
+         let j = Math.floor(Math.random() * seedlength);
+          createPassword += seed[j];
+        }
+        return createPassword;
+      },
+      searchAccount(param) {
+        let params={
+          'service':this.Api.VENUS_WMS_WORKER_WORKER_SEARCH,
+          data:{
+            'warCode':this.search.waCode
+          }
+        }
+        this.$http.post(this.Api.VENUS_WMS_WORKER_WORKER_SEARCH,params).then(res =>{
+          this.pageData.data = res.data.list;
+        })
+      },
+      addAccount() {
+        this.initChecked('add');
+        this.addAccountData.worIsuprectime =  this.single?2:1;
+        var params = {
+          'service': this.Api.VENUS_WMS_WORKER_WORKER_ADD,
+          'data': this.addAccountData
+        }
+        this.$http.post(this.Api.VENUS_WMS_WORKER_WORKER_ADD, params).then(res => {
+          if (res.success) {
+            this.single= false;
+            this.$Modal.success({
+              title: '提示',
+              content: res.message
+            })
+            this.queryTable();
+          }
+        })
+      },
+      editAccount() {
+        this.initChecked('edit');
+        this.editAccountData.worIsuprectime =  this.single?2:1;
+        var params = {
+          'service': this.Api.VENUS_WMS_WORKER_WORKER_UPDATE,
+          'data': this.editAccountData
+        }
+        this.$http.post(this.Api.VENUS_WMS_WORKER_WORKER_UPDATE, params).then(res => {
+          if (res.success) {
+          this.single= false;
+            this.$Modal.success({
+              title: '提示',
+              content: res.message
+            })
+          }
+          this.queryTable();
+        })
+      },
+      initChecked(act) {
+        if (act == 'add') {
+          for (let i = 0; i < this.authData.length; i++) {
+            if (this.authData[i].checked) {
+              this.addAccountData.woAuth += parseInt(this.authData[i].authCode);
+            }
+          }
+          for (let i = 0; i < this.authMsg.length; i++) {
+            if (this.authMsg[i].checked) {
+              this.addAccountData.woAuth += parseInt(this.authMsg[i].authCode);
+            }
+          }
+        } else {
+          this.editAccountData.woAuth = 0;
+          for (let i = 0; i < this.authData.length; i++) {
+            if (this.authData[i].checked) {
+              this.editAccountData.woAuth += parseInt(this.authData[i].authCode);
+            }
+          }
+          for (let i = 0; i < this.authMsg.length; i++) {
+            if (this.authMsg[i].checked) {
+              this.editAccountData.woAuth += parseInt(this.authMsg[i].authCode);
+            }
+          }
+        }
+
+      },
+      queryTable(curPage) {
+        curPage = curPage ? curPage : 0;
+        var params = {
+          "service": this.Api.VENUS_WMS_WORKER_WORKER_LIST,
+          "data": {
+            "pageCurrent": curPage
+          }
+        }
+        this.$http.post(this.Api.VENUS_WMS_WORKER_WORKER_LIST, params).then(res => {
+          this.loading = false;
+          this.pageData.data = res.data.list;
+          this.pageData.totalCount = parseInt(res.data.totalCount);
+          this.pageData.pageSize = parseInt(res.data.pageSize);
+          this.pageData.pageCurrent = parseInt(res.data.pageCurrent);
+
+        })
+      },
+      handleReset(name) {
+        this.$refs[name].resetFields();
+      },
+      handleClick(act) {
+        if (act == 'add') {
+          this.modalData.accountAdd = true;
+          for (let i = 0; i < this.authData.length; i++) {
+            this.authData[i].checked = false;
+          }
+          for (let i = 0; i < this.authMsg.length; i++) {
+            this.authMsg[i].checked = false;
+          }
+        } else {
+          this.modalData.accountEdit = true;
+        }
+      },
+      handleChange(count) {
+        count = count - 1;
+        this.queryTable(count);
+      },
+      deleteWorker(woCode) {
+        var params = {
+          'service': this.Api.VENUS_WMS_WORKER_WORKER_DELETE,
+          'data': {
+            'woCode': woCode
+          }
+        }
+        this.$http.post(this.Api.VENUS_WMS_WORKER_WORKER_DELETE, params).then(res => {
+          if (res.success) {
+            this.$Message.info(res.message);
+          }
+          this.queryTable();
+        })
+      }
+    },
+    mounted() {
+      let [...minwarehouse] = this.warehouse;
+      this.minwarehouse = minwarehouse.splice(1, minwarehouse.length);
+      if (this.auth & this.authCode > 0) {
+        this.authMsg.push({
+          authCode: 512,
+          authName: '系统账户管理',
+          checked: false
+        })
+      }
+      this.queryTable();
+      this.tableHeight = Number(window.innerHeight - 278);
+      this.contentHeight = Number(window.innerHeight - 170);
+    },
+    data() {
+      return {
+        single:false,
+        search: {
+          waCode: ''
+        },
+        seed : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', '0', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+        auth: auth,
+        authCode: 512,
+        warehouse: warehouse,
+        minwarehouse: [],
+        contentHeight: 0,
+        tableHeight: 0,
+        loading: false,
+        authData: [
+          /*{
+                    authCode:1,
+                    authName:'SPU管理',
+                    checked:false
+                },
+                {
+                    authCode:2,
+                    authName:'SKU管理',
+                    checked:false
+                },
+
+                {
+                    authCode:8,
+                    authName:'采购单管理',
+                    checked:false
+                },
+                {
+                    authCode:16,
+                    authName:'账户管理',
+                    checked:false
+                },*/
+          {
+            authCode: 1,
+            authName: '供应商管理',
+            checked: false
+          },
+          {
+            authCode: 2,
+            authName: '商品数据管理',
+            checked: false
+          },
+          {
+            authCode: 12,
+            authName: '入仓单管理',
+            checked: false
+          },
+          /*{
+                    authCode:8,
+                    authName:'入仓单管理',
+                    checked:false
+                },*/
+          {
+            authCode: 48,
+            authName: '出仓单管理',
+            checked: false
+          },
+          /*{
+                    authCode:32,
+                    authName:'出仓单管理',
+                    checked:false
+                },*/
+          {
+            authCode: 64,
+            authName: '库存管理',
+            checked: false
+          },
+          {
+            authCode: 128,
+            authName: '报表管理',
+            checked: false
+          },
+          {
+                    authCode:1024,
+                    authName:'报表数据平台',
+                    checked:false
+          },
+        ],
+        authMsg: [
+          /*{
+                    authCode:4096,
+                    authName:'仓库账户管理',
+                    checked:false
+                },*/
+          {
+            authCode: 256,
+            authName: '全局报表管理',
+            checked: false
+          },
+        ],
+        title: [],
+        pageData: {
+          columns: [
+            {
+              title: '人员编码',
+              key: 'woCode',
+              width: 140,
+              align: 'center',
+            },
+            {
+              title: '账户名称',
+              key: 'woName',
+              width: 100,
+              align: 'center',
+            },
+            {
+              title: '真实姓名',
+              key: 'realName',
+              width: 80,
+              align: 'center',
+              render: (h, params) => {
+                return h('div', [
+                  h('span', {
+                    /*style: {
+                      // display: 'inline-block',
+                      // width: '100%',
+                      // overflow: 'hidden',
+                      // textOverflow: 'ellipsis',
+                      // whiteSpace: 'nowrap'
+                      color:'red'
+                    },*/
+                    on: {
+                      mouseover: () => {
+                        this.title = []
+                        this.editAccountData.woAuth = parseInt(params.row.woAuth);
+                        for (let i = 0; i < this.authData.length; i++) {
+                          if ((this.authData[i].authCode & this.editAccountData.woAuth) > 0) {
+                            this.title.push(' ' + this.authData[i].authName);
+                          }
+                        }
+                        for (let i = 0; i < this.authMsg.length; i++) {
+                          if ((this.authMsg[i].authCode & this.editAccountData.woAuth) > 0) {
+                            this.title.push(' ' + this.authMsg[i].authName);
+                          }
+                        }
+                      }
+                    },
+                    domProps: {
+                      title: this.title
+                    }
+                  }, params.row.realName)
+                ])
+              }
+            },
+            {
+              title: '账户钥匙',
+              key: 'woToken',
+              align: 'center',
+            },
+            {
+              title: '手机号',
+              key: 'woPhone',
+              align: 'center',
+              width: 100,
+            },
+            {
+              title: '所属项目组',
+              key: 'waName',
+              align: 'center',
+              width: 180,
+            },
+            {
+              title: '操作',
+              key: 'action',
+              width: 120,
+              align: 'center',
+              render: (h, params) => {
+                return h('div', [
+                  h('Button', {
+                    props: {
+                      type: 'warning',
+                      size: 'small'
+                    },
+                    style: {
+                      marginRight: '10px'
+                    },
+                    on: {
+                      click: () => {
+                        this.editAccountData.woName = params.row.woName;
+                        this.editAccountData.woCode = params.row.woCode;
+                        this.editAccountData.woPhone = params.row.woPhone;
+                        this.editAccountData.waCode = params.row.waCode
+                        this.editAccountData.woAuth = parseInt(params.row.woAuth);
+                        if(params.row.worIsuprectime==2) {
+                           this.single = true
+                        }else {
+                          this.single = false;
+                        }
+
+                        for (let i = 0; i < this.authData.length; i++) {
+                          if ((this.authData[i].authCode & this.editAccountData.woAuth) > 0) {
+                            this.authData[i].checked = true;
+                          } else {
+                            this.authData[i].checked = false;
+                          }
+                        }
+                        for (let i = 0; i < this.authMsg.length; i++) {
+                          if ((this.authMsg[i].authCode & this.editAccountData.woAuth) > 0) {
+                            this.authMsg[i].checked = true;
+                          } else {
+                            this.authMsg[i].checked = false;
+                          }
+                        }
+                        this.editAccountData.realName = params.row.realName;
+                        this.editAccountData.woToken = params.row.woToken;
+                        this.handleClick('edit');
+                      }
+                    }
+                  }, '修改'),
+                  h('Button', {
+                    props: {
+                      type: 'error',
+                      size: 'small'
+                    },
+                    on: {
+                      click: () => {
+
+                        this.$Modal.confirm({
+                          title: '提示',
+                          content: '确定要删除吗？',
+                          onOk: () => {
+                            this.deleteWorker(params.row.woCode);
+                          }
+                        })
+                      }
+                    }
+                  }, '删除')
+                ]);
+              }
+
+            }
+          ],
+          data: [],
+          totalCount: 0,
+          pageCurrent: 0,
+          pageSize: 0
+        },
+        modalData: {
+          accountAdd: false,
+          accountEdit: false,
+        },
+        addAccountData: {
+          woName: '',
+          woAuth: 0,
+          woPwd: '',
+          realName: '',
+          woCode: '',
+          woPhone: '',
+          waCode: '',
+          worIsuprectime:1,
+        },
+        editAccountData: {
+          woName: '',
+          woAuth: 0,
+          woPwd: '',
+          realName: '',
+          woToken: '',
+          woCode: '',
+          woPhone: '',
+          waCode: '',
+          worIsuprectime:1,
+        }
+
+
+      }
+    }
+  }
+</script>

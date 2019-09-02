@@ -1,0 +1,752 @@
+<style>
+  .operate{
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .ivu-select-disabled .ivu-select-selection,.ivu-input[disabled], fieldset[disabled] .ivu-input{
+    background: none;
+  }
+  /*.ivu-modal-body{
+    max-height: 340px;
+    overflow-y: scroll;
+  }*/
+</style>
+<template>
+  <Content :style="{padding: '0 16px 16px'}">
+    <Breadcrumb :style="{margin: '16px 0'}">
+      <BreadcrumbItem>商品数据管理</BreadcrumbItem>
+      <BreadcrumbItem>商品字典管理</BreadcrumbItem>
+    </Breadcrumb>
+    <Card>
+      <div :style="{minHeight:contentHeight+'px'}">
+        <Form :label-width="80" ref="formInline" inline>
+          <!--<FormItem label="客户">
+            <Select style="width:160px;" v-model="searchData.exwCode">
+              <Option v-for="item in warehouse" :value="item.war_code" :key="item.war_code">{{item.war_name}}</Option >
+            </Select >
+          </FormItem>-->
+          <FormItem label="一级分类">
+            <Select style="width:160px;" v-model="searchData.spType" @on-change="changeType(searchData.spType)">
+              <Option  v-for = "(item,key) in type" :value="key" :key="key">{{item}}</Option >
+            </Select >
+          </FormItem>
+          <FormItem label="二级分类">
+            <Select style="width:160px;" v-model="searchData.spSubtype">
+              <Option  v-for = "(item,key) in subType" :value="key" :key="key">{{item}}</Option >
+            </Select >
+          </FormItem>
+          <FormItem label="供应商" :label-width="100">
+            <Select  :label-in-value="true" v-model="searchData.spSupcode"  @on-change="selectSupCode"  :transfer="true" :style="{width:'160px'}" >
+              <Option v-for="(item,key) in  suppliers" :value="item.sup_code" :key="key">{{item.sup_name}}</Option>
+            </Select>
+          </FormItem>
+          <FormItem label="名称/编码">
+            <Input type="text" placeholder="" v-model="searchData.spName"></Input>
+          </FormItem>
+          <FormItem :label-width="10">
+            <Button type="primary" @click="queryTable()">查询</Button>
+          </FormItem>
+          <FormItem :label-width="10">
+            <Button type="success" @click="showAddGoodsModal()">添加货品</Button>
+          </FormItem>
+         <!-- <FormItem :label-width="10">
+            <Upload
+              :show-upload-list="false"
+              :format ="['xlsx']"
+              :on-format-error="handleFormatError"
+              :on-success="handleSuccess"
+              :action="this.$http.baseUrl.host1"
+              :data="{'service': this.Api.VUNUS_WMS_SPU_SUPPLIER_IMPORT}"
+            >
+              <Button type="info">导入供货商设置</Button>
+            </Upload>
+          </FormItem>-->
+        </Form>
+        <!--      <div class="operate">
+            <Button type="warning" style="float: left;" @click="exportSpuData">下载全部SPU数据</Button>
+              <Upload
+                :show-upload-list="false"
+                :format ="['xlsx']"
+                :on-format-error="handleFormatError"
+                :on-success="handleSuccess"
+                :action="this.$http.baseUrl.host1"
+                :data="{'service': this.Api.VENUS_WMS_SPU_PERCENT_IMPORT}"
+                style="float: left; margin-left: 10px;">
+                <Button type="primary">导入客户利润率</Button>
+              </Upload>
+              <Upload
+                :show-upload-list="false"
+                :format ="['xlsx']"
+                :on-format-error="handleFormatError"
+                :on-success="handleSuccess"
+                :action="this.$http.baseUrl.host1"
+                :data="{'service': this.Api.VUNUS_WMS_SPU_SPRICE_IMPORT}"
+                style="float: left;margin-left: 10px;">
+                <Button type="primary">导入内部销售价</Button>
+              </Upload>
+              <Upload
+                :show-upload-list="false"
+                :format ="['xlsx']"
+                :on-format-error="handleFormatError"
+                :on-success="handleSuccess"
+                :action="this.$http.baseUrl.host1"
+                :data="{'service': this.Api.VUNUS_WMS_SPU_BPRICE_IMPORT}"
+                style="float: left;margin-left: 10px;">
+                <Button type="primary">导入内部采购价</Button>
+              </Upload>
+        </div>-->
+        <Table :height="tableHeight" border ref="selection" :columns="pageData.columns" :data="pageData.data" :loading="loading"></Table>
+        <Page style="text-align: right;margin-top: 10px;" :total="pageData.totalCount" show-elevator show-total  :page-size="pageData.pageSize" :current="pageData.pageCurrent+1" @on-change="handleChange"></Page>
+        <form ref="submitForm" :action="this.$http.baseUrl.host2" enctype="multipart/form-data" method="POST">
+          <input type="hidden" name="fname" v-model="formData.fname" />
+          <input type="hidden" name="tname" v-model="formData.tname" />
+          <input type="hidden" name="sname" v-model="formData.sname" />
+        </form>
+        <Modal
+          v-model="addGoodsModal"
+          title="添加货品"
+          @on-ok="addGoods('addGoodsForm')" :styles="{width:'620px'}" >
+          <Form :label-width="106" :rules="addGoodsRule"   :model="addGoodsData" ref="addGoodsForm"  inline>
+            <FormItem label="一级分类：" prop="spType">
+              <Select :label-in-value="true" v-model="addGoodsData.spType"  :transfer="true" :style="{width:'170px'}"  @on-change="addChangeType">
+                <Option  v-for = "(item,key) in types" :value="key" :key="key">{{item}}</Option >
+              </Select >
+            </FormItem>
+            <FormItem label="二级分类：" prop="spSubtype">
+              <Select :label-in-value="true" v-model="addGoodsData.spSubtype" :transfer="true" :style="{width:'170px'}" >
+                <Option  v-for = "(item,key) in subTypes" :value="key" :key="key">{{item}}</Option >
+              </Select >
+            </FormItem>
+            <FormItem label="仓储方式：" prop="spTgtype">
+              <Select  :label-in-value="true" v-model="addGoodsData.spTgtype"  :transfer="true"  :style="{width:'170px'}"  @on-change="selectSpTgtype">
+                <Option v-for="(item,key) in  storage" :value="item.code" :key="key">{{item.name}}</Option>
+              </Select>
+            </FormItem>
+            <FormItem label="名称：" prop="spName">
+              <Input type="text" placeholder="请输入货品名称" v-model="addGoodsData.spName"  :style="{width:'170px'}"></Input>
+            </FormItem>
+            <FormItem label="品牌：" prop="spBrand">
+              <Input type="text"  :style="{width:'170px'}" placeholder="请输入货品品牌" v-model="addGoodsData.spBrand"  ></Input>
+            </FormItem>
+            <FormItem label="产地：" >
+              <Input type="text"  :style="{width:'170px'}" placeholder="请输入产地" v-model="addGoodsData.spFrom"  ></Input>
+            </FormItem>
+            <FormItem label="选择供应商：" prop="suCode">
+              <Select  :label-in-value="true" v-model="addGoodsData.suCode"  :transfer="true" :style="{width:'170px'}"   @on-change="addChangeSuCode">
+                <Option v-for="(item,key) in  minsuppliers" :value="item.sup_code" :key="key">{{item.sup_name}}</Option>
+              </Select>
+            </FormItem>
+            <FormItem label="规格：" prop="spNorm">
+              <Input type="text"  :style="{width:'170px'}" placeholder="请输入货品规格 如:(1KG/袋)" v-model="addGoodsData.spNorm"></Input>
+            </FormItem>
+            <FormItem label="单位：" prop="spUnit">
+              <Input type="text"  :style="{width:'170px'}" v-model="addGoodsData.spUnit" ></Input>
+            </FormItem>
+            <FormItem label="最小规格单位:"  prop="spCunit">
+              <Select :label-in-value="true"  v-model="addGoodsData.spCunit" :transfer="true"  :style="{width:'170px'}" @on-change="addChangeSpCunit">
+                <Option v-for="(item,key) in  cunit" :value="item" :key="key">{{item}}</Option>
+              </Select>
+            </FormItem>
+            <FormItem label="备注：" style="margin-bottom:0">
+              <Input type="text" :style="{width:'170px'}" placeholder="请输入备注" v-model="addGoodsData.spMark" :readonly="false"></Input>
+            </FormItem>
+            <FormItem label="选择账目分类：" prop="spreptype">
+              <Select  :label-in-value="true" v-model="addGoodsData.spreptype"  :transfer="true" :style="{width:'170px'}" >
+                <Option v-for="(item,key) in  spu_reptype" :value="item.code" :key="key">{{item.label}}</Option>
+              </Select>
+            </FormItem>
+          </Form>
+        </Modal>
+        <Modal
+          v-model="editSupplierModal"
+          title="修改供货商"
+          @on-ok="editSupplier('editSupplierForm2',editSupplierData.spCode)" :styles="{width:'620px'}" >
+          <Form :label-width="106" :rules="editSupplierRule"   :model="editSupplierData" ref="editSupplierForm2"  inline>
+            <FormItem label="一级分类：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.sptypeName"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="二级分类：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spsubtypeName"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="仓储方式：" >
+              <Input type="text"  :style="{width:'170px'}"   v-model="editSupplierData.sptgtypeName"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="名称：" >
+              <Input type="text"  v-model="editSupplierData.spName"  :style="{width:'170px'}" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="品牌：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spBrand"  :disabled="true" ></Input>
+            </FormItem>
+            <FormItem label="产地：" >
+              <Input type="text"  :style="{width:'170px'}"  v-model="editSupplierData.spFrom"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="选择供应商：" prop="suCode">
+              <Select  :label-in-value="true" v-model="editSupplierData.suCode"  :transfer="true" :style="{width:'170px'}" >
+                <Option v-for="(item,key) in  minsuppliers" :value="item.sup_code" :key="key">{{item.sup_name}}</Option>
+              </Select>
+            </FormItem>
+            <FormItem label="规格：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spNorm" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="单位：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spUnit" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="最小规格单位:" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spCunit"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="备注：" style="margin-bottom:0">
+              <Input type="text" :style="{width:'170px'}" v-model="editSupplierData.spMark" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="选择账目分类：">
+              <Select  :label-in-value="true" v-model="editSupplierData.spreptype"  :transfer="true" :style="{width:'170px'}" :disabled="true">
+                <Option v-for="(item,key) in  spu_reptype" :value="item.code" :key="key">{{item.label}}</Option>
+              </Select>
+            </FormItem>
+          </Form>
+        </Modal>
+        <Modal
+          v-model="editSupplierModa2"
+          title="修改账目分类"
+          @on-ok="editReptype('editSupplierForm',editSupplierData.spreptype)" :styles="{width:'620px'}" >
+          <Form :label-width="106" :rules="editSupplierRule"   :model="editSupplierData" ref="editSupplierForm"  inline>
+            <FormItem label="一级分类：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.sptypeName"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="二级分类：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spsubtypeName"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="仓储方式：" >
+              <Input type="text"  :style="{width:'170px'}"   v-model="editSupplierData.sptgtypeName"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="名称：" >
+              <Input type="text"  v-model="editSupplierData.spName"  :style="{width:'170px'}" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="品牌：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spBrand"  :disabled="true" ></Input>
+            </FormItem>
+            <FormItem label="产地：" >
+              <Input type="text"  :style="{width:'170px'}"  v-model="editSupplierData.spFrom"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="选择供应商：">
+              <Select  :label-in-value="true" v-model="editSupplierData.suCode"  :transfer="true" :style="{width:'170px'}"   :disabled="true">
+                <Option v-for="(item,key) in  minsuppliers" :value="item.sup_code" :key="key">{{item.sup_name}}</Option>
+              </Select>
+            </FormItem>
+            <FormItem label="规格：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spNorm" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="单位：" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spUnit" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="最小规格单位:" >
+              <Input type="text"  :style="{width:'170px'}" v-model="editSupplierData.spCunit"  :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="备注：" style="margin-bottom:0">
+              <Input type="text" :style="{width:'170px'}" v-model="editSupplierData.spMark" :disabled="true"></Input>
+            </FormItem>
+            <FormItem label="选择账目分类：" prop="spreptype">
+              <Select  :label-in-value="true" v-model="editSupplierData.spreptype"  :transfer="true" :style="{width:'170px'}" >
+                <Option v-for="(item,key) in  spu_reptype" :value="item.code" :key="key">{{item.label}}</Option>
+              </Select>
+            </FormItem>
+          </Form>
+        </Modal>
+      </div>
+    </Card>
+  </Content>
+</template>
+<script>
+  export default{
+    methods:{
+      editReptype(name,spreptype) {
+        let params={
+          "service":this.Api.VENUS_WMS_SKUDICT_SKUDICT_CHANGE_REPTYPE,
+          "data":{
+            "spCode":this.editSupplierData.spCode,
+            "spReptypeCode":spreptype,
+          }
+        }
+        this.$refs[name].validate((valid) => {
+          if (valid) {
+            this.$http.post(this.Api.VENUS_WMS_SKUDICT_SKUDICT_CHANGE_REPTYPE, params).then(res => {
+              if (res.success) {
+                this.$refs[name].resetFields();
+                this.queryTable();
+                this.$Message.info('更改账目分类成功');
+              }
+            })
+          } else {
+            this.$Message.error('请补全信息');
+          }
+        })
+      },
+      addChangeSpCunit(param) {
+        this.addGoodsData.spCunit = param.value
+      },
+      addChangeSuCode(param) {
+        this.addGoodsData.suCode = param.value
+      },
+      selectSpTgtype(param) {
+        this.addGoodsData.spTgtype = param.value
+      },
+      selectSupCode(param) {
+        this.searchData.spSupcode = param.value
+      },
+      addChangeType() {
+        this.subTypes = {}
+        this.addGoodsData.spSubtype="0";
+        if(this.addGoodsData.spType=="0"){
+          this.subTypes={"0":"全部"};
+        }else{
+          for(let item in this.triggerData){
+            if(item==this.addGoodsData.spType){
+              for (let i  in this.triggerData[this.addGoodsData.spType]){
+                if(i!=0) {
+                  this.subTypes[i] = this.triggerData[this.addGoodsData.spType][i]
+                }
+              }
+            }
+          }
+        }
+      },
+      editSupplier(name,spCode) {
+        let params={
+          "service":this.Api.VENUS_WMS_SKUDICT_SKUDICT_CHANGE_SUPPLIER,
+          "data":{
+            "suCode":this.editSupplierData.suCode,
+            "spCode":spCode,
+          }
+        }
+        this.$refs[name].validate((valid) => {
+          if (valid) {
+            this.$http.post(this.Api.VENUS_WMS_SKUDICT_SKUDICT_CHANGE_SUPPLIER, params).then(res => {
+              if (res.success) {
+                this.$refs[name].resetFields();
+                this.queryTable();
+                this.$Message.info('更改供货商成功');
+              }
+            })
+          } else {
+            this.$Message.error('请补全信息');
+          }
+        })
+      },
+      showAddGoodsModal() {
+        this.addGoodsModal = true;
+      },
+      addGoods(name) {//添加货品
+        let params={
+          "service":this.Api.VENUS_WMS_SKUDICT_SKUDICT_CREATE,
+          "data":{
+            spName: this.addGoodsData.spName,
+            spBrand:this.addGoodsData.spBrand,
+            spFrom:this.addGoodsData.spFrom,
+            suCode:this.addGoodsData.suCode,
+            spNorm:this.addGoodsData.spNorm,
+            spUnit:this.addGoodsData.spUnit,
+            spCunit:this.addGoodsData.spCunit,
+
+            spType:this.addGoodsData.spType,
+            spSubtype:this.addGoodsData.spSubtype,
+            spTgtype:this.addGoodsData.spTgtype,
+            spMark:this.addGoodsData.spMark,
+            spReptypeCode:this.addGoodsData.spreptype
+          }
+        }
+        this.$refs[name].validate((valid) => {
+          if (valid) {
+            this.$http.post(this.Api.VENUS_WMS_SKUDICT_SKUDICT_CREATE, params).then(res => {
+              if (res.success) {
+                this.queryTable();
+                this.$refs[name].resetFields();
+              }
+            })
+          } else {
+            this.$Message.error('请补全货品信息!');
+          }
+        })
+      },
+      queryTable(curPage){
+        curPage=curPage?curPage:0;
+        let params={
+          "service":this.Api.VENUS_WMS_SKUDICT_SKUDICT_SEARCH,
+          "data":{
+            "spName":this.searchData.spName,
+            "spType":this.searchData.spType,
+            "spSubtype":this.searchData.spSubtype,
+            "spSupcode":this.searchData.spSupcode,
+            "pageCurrent":curPage,
+          }
+        }
+        this.$http.post(this.Api.VENUS_WMS_SKUDICT_SKUDICT_SEARCH,params).then(res =>{
+          if(res.success){
+            this.loading=false;
+            this.pageData.data=res.data.list;
+            this.pageData.totalCount=parseInt(res.data.totalCount);
+            this.pageData.pageSize=parseInt(res.data.pageSize);
+            this.pageData.pageCurrent=parseInt(res.data.pageCurrent);
+          }
+        })
+      },
+      handleChange(count){
+        count=count-1;
+        this.queryTable(count);
+      },
+      deleteGoods(spCode,skCode) {
+        let params={
+          "service":this.Api.VENUS_WMS_SKUDICT_SKUDICT_DELETE,
+          "data":{
+            "spCode":spCode,
+            "skCode":skCode
+          }
+        }
+            this.$http.post(this.Api.VENUS_WMS_SKUDICT_SKUDICT_DELETE, params).then(res => {
+              if (res.success) {
+                this.queryTable();
+                this.$Message.info('删除货品成功');
+              }
+            })
+      },
+      /*exportSpuData(){
+        if(this.searchData.exwCode==0){
+          this.$Modal.warning({
+            title:'提示',
+            content:'请先选择客户再进行下载。'
+          })
+        }else{
+          var params={
+            "service":this.Api.VENUS_WMS_SPU_SPU_EXPORT,
+            "data":{
+              'exwCode':this.searchData.exwCode,
+            }
+          }
+          this.$http.post(this.Api.VENUS_WMS_SPU_SPU_EXPORT,params).then(res =>{
+            if(res.success){
+              this.formData.fname=res.data;
+              var I=this;
+              setTimeout(function(){
+                I.$refs.submitForm.submit();
+              },200)
+
+            }
+          })
+        }
+
+      },
+      handleFormatError(){
+        this.$Modal.warning({
+          title: '提示',
+          content: '文件格式不符，请重新选择.xlsx的文件上传！'
+        });
+      },
+      handleSuccess(res, file){
+        if(res.error==0){
+          if(res.success){
+            this.$Modal.success({
+              title:'提示',
+              content:res.message
+            })
+            this.queryTable();
+          }else{
+            this.$Modal.warning({
+              title:'提示',
+              content:res.message
+            })
+          }
+        }else{
+          this.$Modal.warning({
+            title:'提示',
+            content:res.msg
+          })
+        }
+
+      },*/
+      changeType(typeCode){
+        this.searchData.spSubtype="0";
+        if(typeCode=="0"){
+          this.subType={"0":"全部"};
+        }else{
+          for(let item in this.triggerData){
+            if(item==typeCode){
+              this.subType=this.triggerData[typeCode];
+            }
+          }
+        }
+      }
+    },
+    mounted(){
+      for (let i in this.type){
+        if(i!=0){
+          this.types[i] = this.type[i]
+        }
+      }
+
+      this.queryTable();
+       if(this.suppliers.length>0){
+         for (let i=0;i<this.suppliers.length;i++){
+           if(this.suppliers[i].sup_code!="SU00000000000001"&&this.suppliers[i].sup_code!="0"){
+             this.minsuppliers.push(this.suppliers[i])
+           }
+         }
+       }
+      this.tableHeight = Number(window.innerHeight - 328);
+      this.contentHeight = Number(window.innerHeight - 170);
+    },
+    data(){
+      return {
+        cunit:cunit,
+        spu_reptype:spu_reptype,
+        storage:storage,
+        suppliers: suppliers,
+        minsuppliers: [],
+        editSupplierModal:false,
+        editSupplierModa2:false,
+        editSupplierRule:{
+          suCode: [{required: true, message: '请选择供货商', trigger: 'blur'},
+            {type: 'string', trigger: 'change'}
+          ],
+          spreptype: [{required: true, message: '请选择报表分类', trigger: 'blur'},
+            {type: 'string',trigger: 'change'}]
+        },
+        editSupplierData:{
+          spName:'',
+          spBrand:'',
+          spForm:'',
+          suCode:'',
+          spNorm:'',
+          spUnit:'',
+          spCunit:'',
+
+          spType:'',
+          spSubtype:'',
+          spTgtype:'',
+          spMark:'',
+          spreptype:''
+        },
+        addGoodsRule:{
+          spName: [{required: true, message: '请输入货品名称', trigger: 'blur'},
+            {type: 'string', trigger: 'change'}
+          ],
+          spBrand: [{required: true, message: '请输入品牌', trigger: 'blur'},
+            {type: 'string',trigger: 'change'}
+          ],
+          suCode: [{required: true, message: '请选择供货商', trigger: 'blur'},
+            {type: 'string',trigger: 'change'}
+          ],
+          spNorm: [{required: true, message: '请输入规格', trigger: 'blur'},
+            {type: 'string',  trigger: 'change'}
+          ],
+          spUnit: [{required: true, message: '请输入单位', trigger: 'blur'},
+            {type: 'string',  trigger: 'change'}
+          ],
+          spType: [{required: true, message: '请选择一级分类', trigger: 'blur'},
+            {type: 'string', trigger: 'change'}
+          ],
+          spSubtype: [{required: true, message: '请选择二级分类', trigger: 'blur'},
+            {type: 'string', trigger: 'change'}
+          ],
+          spTgtype: [{required: true, message: '请选择仓储方式', trigger: 'blur'},
+            {type: 'string', trigger: 'change'}
+          ],
+          spCunit: [{required: true, message: '请选择最小规格单位', trigger: 'blur'},
+            {type: 'string', trigger: 'change'}],
+          spreptype: [{required: true, message: '请选择报表分类', trigger: 'blur'},
+            {type: 'string',trigger: 'change'}]
+        },
+        addGoodsData:{
+          spName:'',
+          spBrand:'',
+          spFrom:'',
+          suCode:'',
+          spNorm:'',
+          spUnit:'',
+          spCunit:'',
+
+          spType:'',
+          spSubtype:'',
+          spTgtype:'',
+          spMark:'',
+          spreptype:''
+        },
+        addGoodsModal:false,
+        contentHeight: 0,
+        tableHeight: 0,
+        warehouse:warehouse,
+        type:type,
+        types:{},
+        triggerData:subType,
+        subType:{"0":"全部"},
+        subTypes:{},
+        loading:true,
+        searchData:{
+          spName:"",
+          spType:"0",
+          spSubtype:"0",
+          exwCode:"0",
+          spSupcode:'',
+        },
+        pageData:{
+          columns:[
+            {
+              title:'编码',
+              key:'spCode',
+              align: 'center',
+            },
+            {
+              title:'名称',
+              key:'spName',
+              align: 'center',
+            },
+            {
+              title:'规格',
+              key:'spNorm',
+              align: 'center',
+            },
+            {
+              title:'单位',
+              key:'spUnit',
+              width:50,
+              align: 'center',
+            },
+            {
+              title:'品牌',
+              key:'spBrand',
+              align: 'center',
+            },
+            {
+              title:'产地',
+              key:'spFrom',
+              align: 'center',
+            },
+            {
+              title:'一级品类',
+              key:'sptypeName',
+              align: 'center',
+              width:70,
+            },
+            {
+              title:'二级品类',
+              key:'spsubtypeName',
+              align: 'center',
+              width:70,
+            },
+            {
+              title:'仓储方式',
+              key:'sptgtypeName',
+              align: 'center',
+              width:70,
+            },
+
+            /* {
+               title:'内部采购价',
+               key:'spBprice'
+             },
+             {
+               title:'内部销售价',
+               key:'spSprice'
+             },
+             {
+               title:'客户利润率',
+               key:'cltPercent'
+             },
+             {
+               title:'客户利润价',
+               key:'cltProfit'
+             },
+             {
+               title:'客户销售价',
+               key:'cltSprice'
+             },
+             {
+               title:'供货商编码',
+               key:'supCode'
+             },*/
+            {
+              title:'供货商',
+              key:'sucodeName',
+              align: 'center',
+              width:160
+            },
+            {
+              title:'报表分类',
+              key:'spreptypeName',
+              align: 'center',
+            },
+            {
+              title:'操作',
+              align: 'center',
+              width:240,
+              render: (h, params) => {
+                let actionBtn = [];
+                  actionBtn = [
+                    h('Button', {
+                      props: {
+                        type: 'error',
+                        size: 'small',
+                        disabled:params.row.suCode  != "SU00000000000001" ? false : true
+                      },
+                      style: {
+                        marginRight: '4px'
+                      },
+                      on: {
+                        click: () => {
+                          let _this = this
+                          _this.$Modal.confirm({
+                            title: '提示',
+                            content: `确定要删除此货品吗`,
+                            cancelText: `取消`,
+                            onOk() {
+                              _this.deleteGoods(params.row.spCode,params.row.skCode);
+                            }
+                          })
+                        }
+                      }
+                    }, '删除'),
+                    h('Button', {
+                      props: {
+                        type: 'info',
+                        size: 'small',
+                        disabled:params.row.suCode  != "SU00000000000001" ? false : true
+                      },
+                      style: {
+                        marginRight: '4px'
+                      },
+                      on: {
+                        click: () => {
+                          this.editSupplierModal = true
+                          this.editSupplierData = params.row
+                        }
+                      }
+                    }, '更改供货商'),
+                    h('Button', {
+                      props: {
+                        type: 'success',
+                        size: 'small',
+                      },
+                      on: {
+                        click: () => {
+                          this.editSupplierModa2 = true
+                          this.editSupplierData = params.row
+                        }
+                      }
+                    }, '更改账目分类')
+                  ]
+                return h('div', actionBtn);
+              }
+            },
+          ],
+          data:[],
+          totalCount:0,
+          pageSize:0,
+          pageCurrent:0
+        },
+        formData:{
+          fname:'',
+          tname:'001',
+          sname:'全部SPU数据表.xlsx'
+        }
+      }
+
+    }
+  }
+</script>

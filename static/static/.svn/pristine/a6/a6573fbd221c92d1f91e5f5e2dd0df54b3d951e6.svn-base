@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title></title>
+  <style>
+    .chromeframe {
+      margin:.2em 0;
+      background:#ccc;
+      color:#000;
+      padding:.2em 0
+    }
+    #loader-wrapper {
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      z-index:999999
+    }
+    #loader {
+      display:block;
+      position:relative;
+      left:50%;
+      top:50%;
+      width:150px;
+      height:150px;
+      margin:-75px 0 0 -75px;
+      border-radius:50%;
+      border:3px solid transparent;
+      border-top-color:#FFF;
+      -webkit-animation:spin 2s linear infinite;
+      -ms-animation:spin 2s linear infinite;
+      -moz-animation:spin 2s linear infinite;
+      -o-animation:spin 2s linear infinite;
+      animation:spin 2s linear infinite;
+      z-index:1001
+    }
+    #loader:before {
+      content:"";
+      position:absolute;
+      top:5px;
+      left:5px;
+      right:5px;
+      bottom:5px;
+      border-radius:50%;
+      border:3px solid transparent;
+      border-top-color:#FFF;
+      -webkit-animation:spin 3s linear infinite;
+      -moz-animation:spin 3s linear infinite;
+      -o-animation:spin 3s linear infinite;
+      -ms-animation:spin 3s linear infinite;
+      animation:spin 3s linear infinite
+    }
+    #loader:after {
+      content:"";
+      position:absolute;
+      top:15px;
+      left:15px;
+      right:15px;
+      bottom:15px;
+      border-radius:50%;
+      border:3px solid transparent;
+      border-top-color:#FFF;
+      -moz-animation:spin 1.5s linear infinite;
+      -o-animation:spin 1.5s linear infinite;
+      -ms-animation:spin 1.5s linear infinite;
+      -webkit-animation:spin 1.5s linear infinite;
+      animation:spin 1.5s linear infinite
+    }
+    @-webkit-keyframes spin {
+      0% {
+        -webkit-transform:rotate(0deg);
+        -ms-transform:rotate(0deg);
+        transform:rotate(0deg)
+      }
+      100% {
+        -webkit-transform:rotate(360deg);
+        -ms-transform:rotate(360deg);
+        transform:rotate(360deg)
+      }
+    }@keyframes spin {
+       0% {
+         -webkit-transform:rotate(0deg);
+         -ms-transform:rotate(0deg);
+         transform:rotate(0deg)
+       }
+       100% {
+         -webkit-transform:rotate(360deg);
+         -ms-transform:rotate(360deg);
+         transform:rotate(360deg)
+       }
+     }#loader-wrapper .loader-section {
+        position:fixed;
+        top:0;
+        width:51%;
+        height:100%;
+        background:#2095f2;
+        z-index:1000;
+        -webkit-transform:translateX(0);
+        -ms-transform:translateX(0);
+        transform:translateX(0)
+      }
+    #loader-wrapper .loader-section.section-left {
+      left:0
+    }
+    #loader-wrapper .loader-section.section-right {
+      right:0
+    }
+    .loaded #loader-wrapper .loader-section.section-left {
+      -webkit-transform:translateX(-100%);
+      -ms-transform:translateX(-100%);
+      transform:translateX(-100%);
+      -webkit-transition:all .7s .3s cubic-bezier(0.645,0.045,0.355,1.000);
+      transition:all .7s .3s cubic-bezier(0.645,0.045,0.355,1.000)
+    }
+    .loaded #loader-wrapper .loader-section.section-right {
+      -webkit-transform:translateX(100%);
+      -ms-transform:translateX(100%);
+      transform:translateX(100%);
+      -webkit-transition:all .7s .3s cubic-bezier(0.645,0.045,0.355,1.000);
+      transition:all .7s .3s cubic-bezier(0.645,0.045,0.355,1.000)
+    }
+    .loaded #loader {
+      opacity:0;
+      -webkit-transition:all .3s ease-out;
+      transition:all .3s ease-out
+    }
+    .loaded #loader-wrapper {
+      visibility:hidden;
+      -webkit-transform:translateY(-100%);
+      -ms-transform:translateY(-100%);
+      transform:translateY(-100%);
+      -webkit-transition:all .3s 1s ease-out;
+      transition:all .3s 1s ease-out
+    }
+    .no-js #loader-wrapper {
+      display:none
+    }
+    .no-js h1 {
+      color:#222
+    }
+    #loader-wrapper .load_title {
+      font-family:'Open Sans';
+      color:#FFF;
+      font-size:19px;
+      width:100%;
+      text-align:center;
+      z-index:9999999999999;
+      position:absolute;
+      top:60%;
+      opacity:1;
+      line-height:30px
+    }
+    #loader-wrapper .load_title span {
+      font-weight:normal;
+      font-style:italic;
+      font-size:13px;
+      color:#FFF;
+      opacity:.5
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/iview/2.14.3/styles/iview.css">
+</head>
+<body>
+<div id="app">
+  <div id="loader-wrapper">
+    <div id="loader"></div>
+    <div class="loader-section section-left"></div>
+    <div class="loader-section section-right"></div>
+    <div class="load_title">正在加载<br><span>至味团餐供应系统</span></div>
+  </div>
+</div>
+<script>
+  var config='{$config}';
+  // var config='{"appname":"\u9910\u996e\u516c\u53f8\u4ed3\u5e93\u7cfb\u7edf","host":"idev.shijijiaming.cn","receipt_type":[{"code":"1","label":"\u91c7\u8d2d\u5165\u4ed3"},{"code":"2","label":"\u9000\u8d27\u5165\u4ed3"}],"invoice_type":[{"code":"4","label":"\u9500\u552e\u51fa\u4ed3"},{"code":"5","label":"\u9886\u7528\u51fa\u4ed3"},{"code":"6","label":"\u9000\u8d27\u51fa\u4ed3"},{"code":"7","label":"\u635f\u8017\u51fa\u4ed3"}],"user":{"name":"wenliming","code":"WO30817165118493","auth":"1023","rname":"\u6e29\u5229\u660e","token":"bea43f5f7ad39e2d184cb16885043d42","phone":"","warcode":"WA100002","warname":"\u5b8b\u5e86\u9f84\u57fa\u91d1\u4f1a\u9879\u76ee\u7ec4\u4ed3\u5e93"},"warehouse":[{"war_name":"\u5168\u90e8","war_code":"0","war_address":"","war_postal":"","war_info":""},{"id":"11","war_code":"WA100011","war_name":"\u7edf\u6218\u90e8\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u7edf\u6218\u90e8\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u538511"},{"id":"10","war_code":"WA100010","war_name":"\u6587\u8054\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u6587\u8054\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u538510"},{"id":"9","war_code":"WA100009","war_name":"\u603b\u516c\u53f8\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u603b\u516c\u53f8\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u53859"},{"id":"8","war_code":"WA100008","war_name":"\u56e2\u4e2d\u592e\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u56e2\u4e2d\u592e\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u53858"},{"id":"7","war_code":"WA100007","war_name":"\u79d1\u534f\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u79d1\u534f\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u53857"},{"id":"6","war_code":"WA100006","war_name":"\u9b4f\u516c\u6751\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u9b4f\u516c\u6751\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u53856"},{"id":"5","war_code":"WA100005","war_name":"\u515a\u6821\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u515a\u6821\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u53855"},{"id":"4","war_code":"WA100004","war_name":"\u4f1a\u5802\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u4f1a\u5802\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u53854"},{"id":"3","war_code":"WA100003","war_name":"\u515a\u6821\u89c2\u56ed\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u515a\u6821\u89c2\u56ed\u9879\u76ee","war_address":"\u5730\u5740\u6682\u7a7a","war_postal":"100000","rooms":"\u9910\u53853"},{"id":"2","war_code":"WA100002","war_name":"\u5b8b\u5e86\u9f84\u57fa\u91d1\u4f1a\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u4f73\u660e\u5b8b\u57fa\u4f1a\u9879\u76ee","war_address":"\u5317\u4eac\u5e02\u6d77\u6dc0\u533a\u77e5\u6625\u8def","war_postal":"100014","rooms":"\u9910\u53852"},{"id":"1","war_code":"WA100001","war_name":"\u4e2d\u592e\u515a\u6821\u98df\u5802\u9879\u76ee\u7ec4\u4ed3\u5e93","war_info":"\u4f73\u660e\u4e2d\u592e\u515a\u6821\u9879\u76ee","war_address":"\u5317\u4eac\u5e02\u671d\u9633\u533a\u4eae\u9a6c\u6865","war_postal":"100012","rooms":"\u9910\u53851"}],"suppliers":[{"sup_name":"\u5168\u90e8","sup_code":"0"},{"id":"64","sup_code":"SU40605144723439","sup_name":"\u4e07\u6069","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"16446146146","sup_manager":"\u963f\u4e07","war_code":"","timestamp":"2019-06-05 14:47:23"},{"id":"63","sup_code":"SU40519153505924","sup_name":"\u5f00\u6e90\u5e7f\u6751","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"123123565463","sup_manager":"\u5f00","war_code":"","timestamp":"2019-05-19 15:35:05"},{"id":"62","sup_code":"SU40423140043285","sup_name":"\u9633\u6625\u767d\u96ea","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"313213213213","sup_manager":"\u9633","war_code":"","timestamp":"2019-04-23 14:00:43"},{"id":"61","sup_code":"SU40418131351469","sup_name":"\u798f\u8fd0\u76db\u6e90\u5efa\u6750\u7ecf\u8425\u90e8","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"16813212311","sup_manager":"\u5f20\u798f\u798f","war_code":"","timestamp":"2019-04-18 13:13:51"},{"id":"60","sup_code":"SU40409165143262","sup_name":"\u79d1\u8d38\uff08\u4f11\u95f2\u98df\u54c1\uff09","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"16222223333","sup_manager":"\u6f58\u9759","war_code":"","timestamp":"2019-05-31 08:40:25"},{"id":"59","sup_code":"SU40409165031663","sup_name":"\u79d1\u8d38\uff08\u9c9c\u9c7c\u6c34\u83dc\uff09","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"16222223333","sup_manager":"\u6f58\u9759","war_code":"","timestamp":"2019-05-31 08:39:43"},{"id":"58","sup_code":"SU40322142801945","sup_name":"\u80e1\u5f6c","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13511112222","sup_manager":"\u80e1\u5f6c","war_code":"","timestamp":"2019-03-22 14:28:01"},{"id":"57","sup_code":"SU40106155229333","sup_name":"\u603b\u516c\u53f8\uff08\u8c03\u62e8\uff09","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13439522718","sup_manager":"\u9ec4\u6625\u73b2","war_code":"","timestamp":"2019-01-06 15:52:29"},{"id":"56","sup_code":"SU31228090647469","sup_name":"\u5174\u9686\u660c\u6cf0","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"15566664444","sup_manager":"\u5c0f\u5174","war_code":"","timestamp":"2018-12-28 09:06:47"},{"id":"55","sup_code":"SU31220094252798","sup_name":"\u9646\u5e74\u534e","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"16644442222","sup_manager":"\u963f\u9646","war_code":"","timestamp":"2018-12-20 09:42:52"},{"id":"54","sup_code":"SU31220094120255","sup_name":"\u4e2d\u610f\u632f\u534e","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"11122223333","sup_manager":"\u4e2d\u4e2d","war_code":"","timestamp":"2018-12-20 09:41:20"},{"id":"53","sup_code":"SU31220094025401","sup_name":"\u4f0a\u7f8e\u5bb6","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"18511222211","sup_manager":"\u4f0a\u4f0a","war_code":"","timestamp":"2018-12-20 09:40:25"},{"id":"52","sup_code":"SU31213151628381","sup_name":"\u79d1\u8d38\uff08\u5c0f\u7a0b\u5e8f\u5916\uff09","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"16122223333","sup_manager":"\u6e5b\u53f6","war_code":"","timestamp":"2018-12-20 09:39:33"},{"id":"51","sup_code":"SU31213100304170","sup_name":"\u9ec4\u592b\u4eba\u6c34\u997a","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"69488330","sup_manager":"\u9ec4\u592b\u4eba","war_code":"","timestamp":"2018-12-13 10:03:04"},{"id":"50","sup_code":"SU31114161810681","sup_name":"\u96c1\u6816\u6708\u76db\u658b","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"15766447799","sup_manager":"\u6708\u6708","war_code":"","timestamp":"2018-11-14 16:18:10"},{"id":"49","sup_code":"SU31114161637975","sup_name":"\u5f00\u6e90\u5e7f\u6751\u98df\u54c1","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"15244663311","sup_manager":"\u5f00\u5f00","war_code":"","timestamp":"2018-11-14 16:16:37"},{"id":"48","sup_code":"SU31114161450408","sup_name":"\u7acb\u706b\u79d1\u6280","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13144556677","sup_manager":"\u7acb\u7acb","war_code":"","timestamp":"2018-11-14 16:14:50"},{"id":"47","sup_code":"SU31114161258904","sup_name":"\u6df1\u5b9d\u76db\u6e90","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"64773979","sup_manager":"\u6df1\u6df1","war_code":"","timestamp":"2018-11-14 16:12:58"},{"id":"46","sup_code":"SU31114161211758","sup_name":"\u81ea\u91c7","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"11111111111","sup_manager":"\u81ea\u91c7\u4f9b\u8d27\u5546","war_code":"","timestamp":"2019-02-17 18:36:05"},{"id":"45","sup_code":"SU31114161029625","sup_name":"\u5317\u4eac\u6052\u660c\u822a\u6709\u9650\u516c\u53f8","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"15533332222","sup_manager":"\u6052\u6052","war_code":"","timestamp":"2018-11-14 16:10:29"},{"id":"44","sup_code":"SU31114160935744","sup_name":"\u5317\u4eac\u4e16\u7eaa\u9633\u5149\u79d1\u6280\u53d1\u5c55\u6709\u9650\u516c\u53f8","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"16211113333","sup_manager":"\u9633\u9633","war_code":"","timestamp":"2018-11-14 16:09:35"},{"id":"43","sup_code":"SU31114160800440","sup_name":"\u4e50\u521b\u6052\u8fdc","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"18866668888","sup_manager":"\u4e50\u4e50","war_code":"","timestamp":"2018-11-14 16:08:00"},{"id":"42","sup_code":"SU31114160618948","sup_name":"\u6b63\u5927\u86cb\u4e1a","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"18610830748","sup_manager":"\u5218\u8273\u971e","war_code":"","timestamp":"2018-11-14 16:06:18"},{"id":"41","sup_code":"SU31114160451832","sup_name":"\u8bda\u771f\u9e4f\u8f89","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13146077757","sup_manager":"\u8bda\u8bda","war_code":"","timestamp":"2018-11-14 16:04:51"},{"id":"40","sup_code":"SU31114160408897","sup_name":"\u5b8f\u4f1f\u91d1\u6797\u767e\u8d27","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13161766888","sup_manager":"\u5f20\u5b8f\u4f1f","war_code":"","timestamp":"2018-11-14 16:04:08"},{"id":"39","sup_code":"SU31114160230322","sup_name":"\u96f7\u6842\u654f\u83dc\u7ad9","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"15611863581","sup_manager":"\u96f7\u6842\u654f","war_code":"","timestamp":"2018-11-14 16:02:30"},{"id":"38","sup_code":"SU31114160131177","sup_name":"\u5317\u8349\u5546\u5e97","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13718735746","sup_manager":"\u80e1\u5149\u8363","war_code":"","timestamp":"2018-11-14 16:01:31"},{"id":"37","sup_code":"SU31114160044603","sup_name":"\u6da6\u6e90\u8bda","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13683006269","sup_manager":"\u6da6\u6da6","war_code":"","timestamp":"2018-11-14 16:00:45"},{"id":"36","sup_code":"SU31114155958668","sup_name":"\u548c\u8def\u96ea","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13801100798","sup_manager":"\u7533\u7ea2\u5efa","war_code":"","timestamp":"2018-11-14 15:59:58"},{"id":"35","sup_code":"SU31114155800406","sup_name":"\u5bcc\u541b\u8f89","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"18611168035","sup_manager":"\u5bcc\u5bcc","war_code":"","timestamp":"2018-11-14 15:58:00"},{"id":"34","sup_code":"SU31114155630479","sup_name":"\u987a\u946b\u519c\u4e1a","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"12188886666","sup_manager":"\u519c\u519c","war_code":"","timestamp":"2018-11-14 15:58:27"},{"id":"33","sup_code":"SU31114155512735","sup_name":"\u5f20\u5f13","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13011896092","sup_manager":"\u5f20\u5f13","war_code":"","timestamp":"2018-11-14 15:55:12"},{"id":"32","sup_code":"SU31114155424881","sup_name":"\u4e09\u5143\u98df\u54c1","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13681237936","sup_manager":"\u5218\u5148\u751f","war_code":"","timestamp":"2018-11-14 15:54:24"},{"id":"31","sup_code":"SU31114155240727","sup_name":"\u6cc9\u6797\u4e30\u4e1a","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13911038005","sup_manager":"\u4f0d\u5168\u6797","war_code":"","timestamp":"2019-04-03 10:16:50"},{"id":"30","sup_code":"SU31114153701719","sup_name":"\u80b2\u9f99\u817e\u98de","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"14555444455","sup_manager":"\u80b2\u80b2","war_code":"","timestamp":"2018-11-14 15:37:01"},{"id":"29","sup_code":"SU31114153328256","sup_name":"\u5b59\u957f\u53cb","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13718398781\\/","sup_manager":"\u5b59\u5148\u751f","war_code":"","timestamp":"2018-11-14 15:50:52"},{"id":"28","sup_code":"SU31114153135208","sup_name":"\u91d1\u60a6\u5fc3\u8fb0","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13436886315","sup_manager":"\u848b\u6b23","war_code":"","timestamp":"2018-11-14 15:45:35"},{"id":"27","sup_code":"SU31114153020809","sup_name":"\u5317\u4eac\u767e\u5ddd","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13521721152","sup_manager":"\u767e\u767e","war_code":"","timestamp":"2018-11-14 15:51:28"},{"id":"26","sup_code":"SU31114152847254","sup_name":"\u5174\u6cfd\u534e","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"14800000000","sup_manager":"\u5174\u5174","war_code":"","timestamp":"2018-11-14 15:28:47"},{"id":"25","sup_code":"SU31114152741454","sup_name":"\u53cc\u6865\u5229\u534e\u51b7\u996e","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"14711447711","sup_manager":"\u53cc\u53cc","war_code":"","timestamp":"2018-11-14 15:27:41"},{"id":"24","sup_code":"SU31114152610695","sup_name":"\u9e4f\u7a0b\u98df\u54c1","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"69472519","sup_manager":"\u963f\u9e4f","war_code":"","timestamp":"2018-11-14 15:50:07"},{"id":"23","sup_code":"SU31114152509735","sup_name":"\u632f\u950b\u852c\u83dc","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13439390096","sup_manager":"\u963f\u632f","war_code":"","timestamp":"2018-11-14 15:49:41"},{"id":"19","sup_code":"SU31114152133291","sup_name":"\u91d1\u5b87\u8fbe\u7f8e","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"14100000000","sup_manager":"\u963f\u91d1","war_code":"","timestamp":"2018-11-14 15:43:21"},{"id":"18","sup_code":"SU31114152046464","sup_name":"\u6b23\u5609\u94ed\u626c","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"14000000000","sup_manager":"\u963f\u5b9e","war_code":"","timestamp":"2019-03-18 14:44:26"},{"id":"17","sup_code":"SU31114152006833","sup_name":"\u8baf\u6052\u4f73\u65f6\u5229","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13500000000","sup_manager":"\u963f\u8baf","war_code":"","timestamp":"2018-11-14 15:20:06"},{"id":"16","sup_code":"SU31114151903388","sup_name":"\u5468\u7ea2\u4e3e","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13701354562","sup_manager":"\u5468\u7ea2\u4e3e","war_code":"","timestamp":"2018-11-14 15:40:50"},{"id":"15","sup_code":"SU31114151835596","sup_name":"\u5f6c\u5f6c\u65fa\u8d22","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13683351420\\/","sup_manager":"\u674e\u5f6c\u5f6c","war_code":"","timestamp":"2018-11-14 15:44:03"},{"id":"14","sup_code":"SU31114151747468","sup_name":"\u53ef\u53e3\u53ef\u4e50","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13501186718","sup_manager":"\u6768\u7855","war_code":"","timestamp":"2018-11-14 15:39:26"},{"id":"13","sup_code":"SU31109161529514","sup_name":"\u53f8\u632f\u5cf0","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13391557342","sup_manager":"\u53f8\u632f\u5cf0","war_code":"","timestamp":"2018-11-14 15:38:50"},{"id":"12","sup_code":"SU31109152232372","sup_name":"\u5fb7\u6e05\u6e90","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"18600706745","sup_manager":"\u5218\u5148\u751f","war_code":"","timestamp":"2018-11-14 15:38:08"},{"id":"11","sup_code":"SU31109152120553","sup_name":"\u5f20\u5bcc\u5f3a","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"18812121721","sup_manager":"\u5f20\u5bcc\u5f3a","war_code":"","timestamp":"2019-01-14 10:36:05"},{"id":"10","sup_code":"SU31109151955159","sup_name":"\u5229\u950b\u7eff\u6c34","sup_type":"0","sup_mark":"","sup_status":"1","sup_phone":"13260328088","sup_manager":"\u738b\u56fd\u6c34","war_code":"","timestamp":"2018-12-31 12:05:25"},{"id":"9","sup_code":"SU00000000000001","sup_name":"\u79d1\u8d38\u4f9b\u8d27\u5546","sup_type":"1","sup_mark":"","sup_status":"1","sup_phone":"16222223333","sup_manager":"\u6f58\u9759","war_code":"WA000001","timestamp":"2019-05-17 10:27:26"}],"rooms":["\u9910\u53851","\u9910\u53852"],"type":{"0":"\u5168\u90e8","102":"\u7c73\u9762\u7cae\u6cb9","104":"\u8c03\u5473\u5e72\u8d27","106":"\u9152\u6c34\u996e\u6599","108":"\u732a\u725b\u7f8a\u8089","110":"\u9e21\u9e2d\u79bd\u86cb","112":"\u6c34\u4ea7\u51bb\u8d27","114":"\u4f11\u95f2\u98df\u54c1"},"subtype":{"0":["\u5168\u90e8"],"102":{"0":"\u5168\u90e8","10201":"\u98df\u7528\u6cb9","10202":"\u7c73","10203":"\u9762\u7c89","10204":"\u6742\u7cae"},"104":{"0":"\u5168\u90e8","10401":"\u8c03\u5473\u6c41","10402":"\u8c03\u5473\u9171","10403":"\u8c03\u5473\u6599","10404":"\u9999\u8f9b\u6599","10405":"\u5e72\u8d27","10406":"\u814c\u5236\u54c1","10407":"\u5176\u4ed6\u8c03\u6599","10408":"\u679c\u812f\u7c7b"},"106":{"0":"\u5168\u90e8","10601":"\u6c34\u996e\u6599","10602":"\u9152\u7c7b"},"108":{"0":"\u5168\u90e8","10801":"\u732a\u8089","10802":"\u725b\u8089","10803":"\u7f8a\u8089","10804":"\u5176\u4ed6"},"110":{"0":"\u5168\u90e8","11001":"\u732a\u8089","11002":"\u725b\u8089","11003":"\u7f8a\u8089","11004":"\u5176\u4ed6"},"112":{"0":"\u5168\u90e8","11201":"\u6d77\u9c9c\u6c34\u4ea7","11202":"\u51b7\u51bb\u9762\u70b9","11203":"\u51b7\u51bb\u852c\u83dc","11204":"\u706b\u817f\u9999\u80a0","11205":"\u5176\u4ed6"},"114":{"0":"\u5168\u90e8","11401":"\u5c0f\u98df\u54c1"}},"storage":[{"name":"\u5e38\u6e29","code":"1"},{"name":"\u51b7\u51bb","code":"2"}],"cunit":["1","0.1","0.01"],"spu_reptype":[{"code":"1","label":"\u852c\u83dc"},{"code":"2","label":"\u6c34\u679c"},{"code":"3","label":"\u5976\u5236\u54c1"},{"code":"4","label":"\u8c46\u5236\u54c1"},{"code":"5","label":"\u732a\u8089"},{"code":"6","label":"\u725b\u7f8a\u8089"},{"code":"7","label":"\u79bd\u7c7b"},{"code":"8","label":"\u6c34\u4ea7(\u6d77\u9c9c)"},{"code":"9","label":"\u86cb\u7c7b"},{"code":"10","label":"\u7c73"},{"code":"11","label":"\u9762"},{"code":"12","label":"\u6742\u7cae"},{"code":"13","label":"\u6cb9"},{"code":"14","label":"\u8c03\u6599"},{"code":"15","label":"\u5e72\u8d27"},{"code":"16","label":"\u9152\u6c34\u996e\u6599"},{"code":"17","label":"\u7269\u6599"},{"code":"18","label":"\u5c0f\u98df\u54c1"}],"version":"Venus.mini.0.0.1"}';
+
+  config=JSON.parse(config);
+  var auth=config.user.auth;
+  var houseType=config.user.houseType;
+  var type=config.type;
+  var subType=config.subtype;
+  var warehouse=config.warehouse;
+  var host = config.host;
+  var suppliers = config.suppliers;
+  var storage = config.storage;
+  var cunit = config.cunit;
+  var rooms = config.rooms;
+  var receipt_type = config.receipt_type;
+  var invoice_type = config.invoice_type;
+  var create_invoice_type = config.create_invoice_type;
+  var spu_reptype = config.spu_reptype;
+  window.onload=function(){
+    document.getElementById('app').className="loaded";
+  }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.20/vue.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.18.0/axios.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/iview/2.14.3/iview.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qs/6.5.2/qs.min.js"></script>
+<!-- built files will be auto injected -->
+</body>
+</html>
