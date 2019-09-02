@@ -1,0 +1,1480 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: lilingna
+ * Date: 2018/7/17
+ * Time: 14:13
+ */
+
+namespace Wms\Service;
+
+
+use Common\Service\ExcelService;
+use Common\Service\PassportService;
+use function Couchbase\basicEncoderV1;
+use http\Exception;
+use Wms\Dao\GoodsbatchDao;
+use Wms\Dao\GoodsDao;
+use Wms\Dao\GoodstoredDao;
+use Wms\Dao\PositionDao;
+use Wms\Dao\ReceiptDao;
+use Wms\Dao\SkuDao;
+use Wms\Dao\SpuDao;
+use Wms\Dao\WorkerDao;
+use Wms\Dao\IgoodsDao;
+use Wms\Dao\IgoodsentDao;
+use Wms\Dao\InvoiceDao;
+use Wms\Dao\OrderDao;
+use Wms\Dao\OrdergoodsDao;
+
+class ReceiptService
+{
+
+    static private $RECEIPT_STATUS_CREATE = "1";//入仓单创建状态
+    static private $RECEIPT_STATUS_INSPECTION = "2";//inspection入仓单验货状态
+    static private $RECEIPT_STATUS_FINISH = "3";//入仓单完成状态
+    static private $RECEIPT_STATUS_CANCEL = "4";//入仓单取消状态
+
+    static private $GOODSBATCH_STATUS_CREATE = "1";//货品批次创建状态
+    static private $GOODSBATCH_STATUS_INSPECTION = "2";//货品批次验货状态
+    static private $GOODSBATCH_STATUS_PUTAWAY = "3";//Putaway货品批次上架状态
+    static private $GOODSBATCH_STATUS_FINISH = "4";//货品批次使用完状态
+
+
+    private $RECEIPT_ALLOW_UPDATE;
+    public $warCode;
+    public $worcode;
+
+    public function __construct()
+    {
+        $workerData = PassportService::getInstance()->loginUser();
+        if (empty($workerData)) {
+            venus_throw_exception(110);
+        }
+//        $str = "{\"wor_code\":\"WO000001\",\"wor_name\":\"admin\",\"wor_rname\":\"\u521d\u59cb\u5316\u8d26\u6237\",\"wor_auth\":\"1023\",\"wor_token\":\"bea43f5f7ad39e2d184cb16885043d42\",\"wor_phone\":\"\",\"war_code\":\"WA100000\",\"war_name\":\"\u79d1\u8d38\u7814\u53d1\u90e8\u5c0f\u4ed3\",\"war_address\":\"\",\"war_postal\":\"000000\",\"war_info\":\"\",\"rooms\":\"\u529e\u516c\u5ba4,\u53a8\u623f,\u5de5\u5177\u95f4\",\"warehouses\":[{\"war_name\":\"\u5168\u90e8\",\"war_code\":\"0\",\"war_address\":\"\",\"war_postal\":\"\",\"war_info\":\"\"},{\"id\":\"30\",\"war_code\":\"WE100028\",\"war_name\":\"\u5916\u90e8\u9879\u76ee\u7ec42\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"29\",\"war_code\":\"WE100027\",\"war_name\":\"\u5916\u90e8\u9879\u76ee\u7ec41\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"28\",\"war_code\":\"WA100026\",\"war_name\":\"\u79d1\u8d38\u98df\u5802\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"27\",\"war_code\":\"WA100025\",\"war_name\":\"\u865a\u62df\u9879\u76ee\u7ec4\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"26\",\"war_code\":\"WA100024\",\"war_name\":\"\u7f51\u4fe1\u529e\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"25\",\"war_code\":\"WA100023\",\"war_name\":\"\u56fd\u5bb6\u94c1\u8def\u5c40\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"24\",\"war_code\":\"WA100022\",\"war_name\":\"\u4e1c\u57ce\u533a\u515a\u6821\",\"war_info\":\"\",\"war_address\":\"\u5317\u4eac\u5e02\u4e1c\u57ce\u533a\u5e72\u9762\u80e1\u540c10\u53f7\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"23\",\"war_code\":\"WA100021\",\"war_name\":\"\u79d1\u534f\u7eff\u5316\u57fa\u5730\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"21\",\"war_code\":\"WA100020\",\"war_name\":\"\u5e02\u59d4\u515a\u6821\u89c2\u56ed\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"20\",\"war_code\":\"WA100019\",\"war_name\":\"\u5e02\u59d4\u515a\u6821\u5b66\u82d1\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\u804c\u5de5\u9910\u5385,\u5b66\u5458\u9910\u5385,\u5408\u540c\u5de5,\u6e05\u771f\"},{\"id\":\"19\",\"war_code\":\"WA100018\",\"war_name\":\"\u65e0\u7ebf\u7535\u53f0\u7ba1\u7406\u5c40\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"18\",\"war_code\":\"WA100017\",\"war_name\":\"\u4fe1\u8bbf\u5c40\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"17\",\"war_code\":\"WA100016\",\"war_name\":\"\u9752\u5c11\u5e74\u53d1\u5c55\u57fa\u91d1\u4f1a\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"16\",\"war_code\":\"WA100015\",\"war_name\":\"\u56fd\u5bb6\u5e7f\u7535\u603b\u5c40564\u7535\u53f0\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"15\",\"war_code\":\"WA100014\",\"war_name\":\"\u65b0\u673a\u573a\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"14\",\"war_code\":\"WA100013\",\"war_name\":\"\u56e2\u4e2d\u592e\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"13\",\"war_code\":\"WA100012\",\"war_name\":\"\u68c0\u5bdf\u9662\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"12\",\"war_code\":\"WA100011\",\"war_name\":\"\u4f1a\u5802\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"11\",\"war_code\":\"WA100010\",\"war_name\":\"\u4e2d\u592e\u515a\u53f2\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"10\",\"war_code\":\"WA100009\",\"war_name\":\"\u5b8b\u5e86\u9f84\u57fa\u91d1\u4f1a\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"9\",\"war_code\":\"WA100008\",\"war_name\":\"\u71d5\u838e\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"8\",\"war_code\":\"WA100007\",\"war_name\":\"\u4e2d\u822a\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"7\",\"war_code\":\"WA100006\",\"war_name\":\"\u79d1\u534f\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"6\",\"war_code\":\"WA100005\",\"war_name\":\"\u9b4f\u516c\u6751\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"5\",\"war_code\":\"WA100004\",\"war_name\":\"\u5317\u4eac\u6587\u8054\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"4\",\"war_code\":\"WA100003\",\"war_name\":\"\u7edf\u6218\u90e8\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"3\",\"war_code\":\"WA100002\",\"war_name\":\"\u4e2d\u56fd\u6587\u8054\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"2\",\"war_code\":\"WA100001\",\"war_name\":\"\u4f73\u660e\u603b\u516c\u53f8\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\"},{\"id\":\"1\",\"war_code\":\"WA100000\",\"war_name\":\"\u79d1\u8d38\u7814\u53d1\u90e8\u5c0f\u4ed3\",\"war_info\":\"\",\"war_address\":\"\",\"war_postal\":\"000000\",\"rooms\":\"\u529e\u516c\u5ba4,\u53a8\u623f,\u5de5\u5177\u95f4\"}],\"suppliers\":[{\"sup_name\":\"\u5168\u90e8\",\"sup_code\":\"0\"},{\"id\":\"57\",\"sup_code\":\"SU40106155229333\",\"sup_name\":\"\u603b\u516c\u53f8\uff08\u8c03\u62e8\uff09\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13439522718\",\"sup_manager\":\"\u9ec4\u6625\u73b2\",\"war_code\":\"\",\"timestamp\":\"2019-01-06 15:52:29\"},{\"id\":\"56\",\"sup_code\":\"SU31228090647469\",\"sup_name\":\"\u5174\u9686\u660c\u6cf0\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"15566664444\",\"sup_manager\":\"\u5c0f\u5174\",\"war_code\":\"\",\"timestamp\":\"2018-12-28 09:06:47\"},{\"id\":\"55\",\"sup_code\":\"SU31220094252798\",\"sup_name\":\"\u9646\u5e74\u534e\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"16644442222\",\"sup_manager\":\"\u963f\u9646\",\"war_code\":\"\",\"timestamp\":\"2018-12-20 09:42:52\"},{\"id\":\"54\",\"sup_code\":\"SU31220094120255\",\"sup_name\":\"\u4e2d\u610f\u632f\u534e\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"11122223333\",\"sup_manager\":\"\u4e2d\u4e2d\",\"war_code\":\"\",\"timestamp\":\"2018-12-20 09:41:20\"},{\"id\":\"53\",\"sup_code\":\"SU31220094025401\",\"sup_name\":\"\u4f0a\u7f8e\u5bb6\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"18511222211\",\"sup_manager\":\"\u4f0a\u4f0a\",\"war_code\":\"\",\"timestamp\":\"2018-12-20 09:40:25\"},{\"id\":\"52\",\"sup_code\":\"SU31213151628381\",\"sup_name\":\"\u79d1\u8d38\uff08\u5c0f\u7a0b\u5e8f\u5916\uff09\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"16122223333\",\"sup_manager\":\"\u6e5b\u53f6\",\"war_code\":\"\",\"timestamp\":\"2018-12-20 09:39:33\"},{\"id\":\"51\",\"sup_code\":\"SU31213100304170\",\"sup_name\":\"\u9ec4\u592b\u4eba\u6c34\u997a\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"69488330\",\"sup_manager\":\"\u9ec4\u592b\u4eba\",\"war_code\":\"\",\"timestamp\":\"2018-12-13 10:03:04\"},{\"id\":\"50\",\"sup_code\":\"SU31114161810681\",\"sup_name\":\"\u96c1\u6816\u6708\u76db\u658b\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"15766447799\",\"sup_manager\":\"\u6708\u6708\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:18:10\"},{\"id\":\"49\",\"sup_code\":\"SU31114161637975\",\"sup_name\":\"\u5f00\u6e90\u5e7f\u6751\u98df\u54c1\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"15244663311\",\"sup_manager\":\"\u5f00\u5f00\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:16:37\"},{\"id\":\"48\",\"sup_code\":\"SU31114161450408\",\"sup_name\":\"\u7acb\u706b\u79d1\u6280\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13144556677\",\"sup_manager\":\"\u7acb\u7acb\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:14:50\"},{\"id\":\"47\",\"sup_code\":\"SU31114161258904\",\"sup_name\":\"\u6df1\u5b9d\u76db\u6e90\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"64773979\",\"sup_manager\":\"\u6df1\u6df1\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:12:58\"},{\"id\":\"46\",\"sup_code\":\"SU31114161211758\",\"sup_name\":\"\u81ea\u91c7\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"11111111111\",\"sup_manager\":\"\u81ea\u91c7\u4f9b\u8d27\u5546\",\"war_code\":\"\",\"timestamp\":\"2019-02-17 18:36:05\"},{\"id\":\"45\",\"sup_code\":\"SU31114161029625\",\"sup_name\":\"\u5317\u4eac\u6052\u660c\u822a\u6709\u9650\u516c\u53f8\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"15533332222\",\"sup_manager\":\"\u6052\u6052\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:10:29\"},{\"id\":\"44\",\"sup_code\":\"SU31114160935744\",\"sup_name\":\"\u5317\u4eac\u4e16\u7eaa\u9633\u5149\u79d1\u6280\u53d1\u5c55\u6709\u9650\u516c\u53f8\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"16211113333\",\"sup_manager\":\"\u9633\u9633\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:09:35\"},{\"id\":\"43\",\"sup_code\":\"SU31114160800440\",\"sup_name\":\"\u4e50\u521b\u6052\u8fdc\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"18866668888\",\"sup_manager\":\"\u4e50\u4e50\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:08:00\"},{\"id\":\"42\",\"sup_code\":\"SU31114160618948\",\"sup_name\":\"\u6b63\u5927\u86cb\u4e1a\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"18610830748\",\"sup_manager\":\"\u5218\u8273\u971e\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:06:18\"},{\"id\":\"41\",\"sup_code\":\"SU31114160451832\",\"sup_name\":\"\u8bda\u771f\u9e4f\u8f89\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13146077757\",\"sup_manager\":\"\u8bda\u8bda\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:04:51\"},{\"id\":\"40\",\"sup_code\":\"SU31114160408897\",\"sup_name\":\"\u5b8f\u4f1f\u91d1\u6797\u767e\u8d27\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13161766888\",\"sup_manager\":\"\u5f20\u5b8f\u4f1f\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:04:08\"},{\"id\":\"39\",\"sup_code\":\"SU31114160230322\",\"sup_name\":\"\u96f7\u6842\u654f\u83dc\u7ad9\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"15611863581\",\"sup_manager\":\"\u96f7\u6842\u654f\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:02:30\"},{\"id\":\"38\",\"sup_code\":\"SU31114160131177\",\"sup_name\":\"\u5317\u8349\u5546\u5e97\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13718735746\",\"sup_manager\":\"\u80e1\u5149\u8363\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:01:31\"},{\"id\":\"37\",\"sup_code\":\"SU31114160044603\",\"sup_name\":\"\u6da6\u6e90\u8bda\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13683006269\",\"sup_manager\":\"\u6da6\u6da6\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 16:00:45\"},{\"id\":\"36\",\"sup_code\":\"SU31114155958668\",\"sup_name\":\"\u548c\u8def\u96ea\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13801100798\",\"sup_manager\":\"\u7533\u7ea2\u5efa\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:59:58\"},{\"id\":\"35\",\"sup_code\":\"SU31114155800406\",\"sup_name\":\"\u5bcc\u541b\u8f89\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"18611168035\",\"sup_manager\":\"\u5bcc\u5bcc\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:58:00\"},{\"id\":\"34\",\"sup_code\":\"SU31114155630479\",\"sup_name\":\"\u987a\u946b\u519c\u4e1a\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"12188886666\",\"sup_manager\":\"\u519c\u519c\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:58:27\"},{\"id\":\"33\",\"sup_code\":\"SU31114155512735\",\"sup_name\":\"\u5f20\u5f13\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13011896092\",\"sup_manager\":\"\u5f20\u5f13\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:55:12\"},{\"id\":\"32\",\"sup_code\":\"SU31114155424881\",\"sup_name\":\"\u4e09\u5143\u98df\u54c1\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13681237936\",\"sup_manager\":\"\u5218\u5148\u751f\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:54:24\"},{\"id\":\"31\",\"sup_code\":\"SU31114155240727\",\"sup_name\":\"\u987a\u8fbe\u9e4f\u8f89\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13911038005\",\"sup_manager\":\"\u4f0d\u5168\u6797\",\"war_code\":\"\",\"timestamp\":\"2018-12-28 10:35:27\"},{\"id\":\"30\",\"sup_code\":\"SU31114153701719\",\"sup_name\":\"\u80b2\u9f99\u817e\u98de\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"14555444455\",\"sup_manager\":\"\u80b2\u80b2\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:37:01\"},{\"id\":\"29\",\"sup_code\":\"SU31114153328256\",\"sup_name\":\"\u5b59\u957f\u53cb\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13718398781\/\",\"sup_manager\":\"\u5b59\u5148\u751f\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:50:52\"},{\"id\":\"28\",\"sup_code\":\"SU31114153135208\",\"sup_name\":\"\u91d1\u60a6\u5fc3\u8fb0\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13436886315\",\"sup_manager\":\"\u848b\u6b23\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:45:35\"},{\"id\":\"27\",\"sup_code\":\"SU31114153020809\",\"sup_name\":\"\u5317\u4eac\u767e\u5ddd\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13521721152\",\"sup_manager\":\"\u767e\u767e\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:51:28\"},{\"id\":\"26\",\"sup_code\":\"SU31114152847254\",\"sup_name\":\"\u5174\u6cfd\u534e\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"14800000000\",\"sup_manager\":\"\u5174\u5174\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:28:47\"},{\"id\":\"25\",\"sup_code\":\"SU31114152741454\",\"sup_name\":\"\u53cc\u6865\u5229\u534e\u51b7\u996e\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"14711447711\",\"sup_manager\":\"\u53cc\u53cc\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:27:41\"},{\"id\":\"24\",\"sup_code\":\"SU31114152610695\",\"sup_name\":\"\u9e4f\u7a0b\u98df\u54c1\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"69472519\",\"sup_manager\":\"\u963f\u9e4f\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:50:07\"},{\"id\":\"23\",\"sup_code\":\"SU31114152509735\",\"sup_name\":\"\u632f\u950b\u852c\u83dc\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13439390096\",\"sup_manager\":\"\u963f\u632f\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:49:41\"},{\"id\":\"19\",\"sup_code\":\"SU31114152133291\",\"sup_name\":\"\u91d1\u5b87\u8fbe\u7f8e\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"14100000000\",\"sup_manager\":\"\u963f\u91d1\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:43:21\"},{\"id\":\"18\",\"sup_code\":\"SU31114152046464\",\"sup_name\":\"\u6b23\u5609\u94ed\u626c\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"14000000000\",\"sup_manager\":\"\u963f\u5b9e\",\"war_code\":\"\",\"timestamp\":\"2019-03-18 14:44:26\"},{\"id\":\"17\",\"sup_code\":\"SU31114152006833\",\"sup_name\":\"\u8baf\u6052\u4f73\u65f6\u5229\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13500000000\",\"sup_manager\":\"\u963f\u8baf\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:20:06\"},{\"id\":\"16\",\"sup_code\":\"SU31114151903388\",\"sup_name\":\"\u5468\u7ea2\u4e3e\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13701354562\",\"sup_manager\":\"\u5468\u7ea2\u4e3e\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:40:50\"},{\"id\":\"15\",\"sup_code\":\"SU31114151835596\",\"sup_name\":\"\u5f6c\u5f6c\u65fa\u8d22\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13683351420\/\",\"sup_manager\":\"\u674e\u5f6c\u5f6c\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:44:03\"},{\"id\":\"14\",\"sup_code\":\"SU31114151747468\",\"sup_name\":\"\u53ef\u53e3\u53ef\u4e50\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13501186718\",\"sup_manager\":\"\u6768\u7855\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:39:26\"},{\"id\":\"13\",\"sup_code\":\"SU31109161529514\",\"sup_name\":\"\u53f8\u632f\u5cf0\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13391557342\",\"sup_manager\":\"\u53f8\u632f\u5cf0\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:38:50\"},{\"id\":\"12\",\"sup_code\":\"SU31109152232372\",\"sup_name\":\"\u5fb7\u6e05\u6e90\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"18600706745\",\"sup_manager\":\"\u5218\u5148\u751f\",\"war_code\":\"\",\"timestamp\":\"2018-11-14 15:38:08\"},{\"id\":\"11\",\"sup_code\":\"SU31109152120553\",\"sup_name\":\"\u5f20\u5bcc\u5f3a\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"18812121721\",\"sup_manager\":\"\u5f20\u5bcc\u5f3a\",\"war_code\":\"\",\"timestamp\":\"2019-01-14 10:36:05\"},{\"id\":\"10\",\"sup_code\":\"SU31109151955159\",\"sup_name\":\"\u5229\u950b\u7eff\u6c34\",\"sup_type\":\"0\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"13260328088\",\"sup_manager\":\"\u738b\u56fd\u6c34\",\"war_code\":\"\",\"timestamp\":\"2018-12-31 12:05:25\"},{\"id\":\"9\",\"sup_code\":\"SU00000000000001\",\"sup_name\":\"\u79d1\u8d38\u4f9b\u8d27\u5546\",\"sup_type\":\"1\",\"sup_mark\":\"\",\"sup_status\":\"1\",\"sup_phone\":\"16222223333\",\"sup_manager\":\"\u6e5b\u53f6\",\"war_code\":\"WA000001\",\"timestamp\":\"2018-12-20 09:39:00\"}],\"invoice_type\":[{\"code\":\"5\",\"label\":\"\u9886\u7528\u51fa\u4ed3\"},{\"code\":\"6\",\"label\":\"\u9000\u8d27\u51fa\u4ed3\"},{\"code\":\"7\",\"label\":\"\u635f\u8017\u51fa\u4ed3\"}],\"receipt_type\":[{\"code\":\"1\",\"label\":\"\u91c7\u8d2d\u5165\u4ed3\"},{\"code\":\"2\",\"label\":\"\u5c0f\u7a0b\u5e8f\u5165\u4ed3\"}],\"type\":\"wms\"}";
+//        $workerData = json_decode($str, true);
+        $this->warCode = $workerData["war_code"];
+        $this->worcode = $workerData["wor_code"];
+        $this->RECEIPT_ALLOW_UPDATE = array(
+            self::$RECEIPT_STATUS_CREATE,
+            self::$RECEIPT_STATUS_INSPECTION,
+        );
+        $this->worRname = $workerData["wor_rname"];//人员名称
+        $this->warAddress = $workerData["war_address"];//仓库地址
+        $this->warPostal = $workerData["war_postal"];//仓库邮编
+        $this->worPhone = $workerData["wor_phone"];//手机号
+    }
+
+
+    /**
+     * @return array|bool
+     * 创建入仓单／获取sku
+     */
+    public function receipt_get_sku()
+    {
+        $warCode = $this->warCode;
+        $skuModel = SkuDao::getInstance($warCode);
+
+        if (empty($_POST['data']['sku'])) {
+            $message = "sku";
+            venus_throw_exception(1, $message);
+            return false;
+        } else {
+            $sku = trim($_POST['data']['sku']);
+            $type = substr($sku, 0, 2);
+            $data = array();
+            if ($type == "SK") {
+                $querySkuData = $skuModel->queryByCode($sku);
+                $spuData = array(
+                    "skName" => $querySkuData['spu_name'],
+                    "skCode" => $querySkuData['sku_code'],
+                    "skNorm" => $querySkuData['sku_norm'],
+                    "skUnit" => $querySkuData['sku_unit'],
+                    "spCode" => $querySkuData['spu_code'],
+                    "spCount" => $querySkuData['spu_count'],
+                    "spUnit" => $querySkuData['spu_unit'],
+                    "spCunit" => $querySkuData['spu_cunit'],
+                    'supCode' => $querySkuData['sup_code'],
+                    "mark" => $querySkuData['spu_mark']
+                );
+                $data['list'][] = $spuData;
+            } else {
+                $spName = trim(str_replace("'", "", $sku));
+                if (!empty($spName) && preg_match("/^[a-z]/i", $spName)) {
+                    $cond['abname'] = $spName;
+                }
+                if (!empty($spName) && !preg_match("/^[a-z]/i", $spName)) {//SPU名称
+                    $cond["%name%"] = $spName;
+                }
+                $cond['spustatus'] = 1;
+                $querySkuDataList = $skuModel->queryListByCondition($cond);
+
+                foreach ($querySkuDataList as $key => $value) {
+                    $spuData = array(
+                        "skName" => $value['spu_name'],
+                        "skCode" => $value['sku_code'],
+                        "skNorm" => $value['sku_norm'],
+                        "skUnit" => $value['sku_unit'],
+                        "spCode" => $value['spu_code'],
+                        "spCount" => $value['spu_count'],
+                        "spUnit" => $value['spu_unit'],
+                        "spCunit" => $value['spu_cunit'],
+                        "spMark" => $value['spu_mark'],
+                        'supCode' => $value['sup_code'],
+                        "mark" => $value['spu_mark']
+                    );
+                    $data['list'][] = $spuData;
+                }
+            }
+            $success = true;
+            $message = '';
+            return array($success, $data, $message);
+        }
+    }
+
+
+//    /**
+//     * @param $param "isFast"是否快速入仓; "list"货品列表; "mark"订单备注信息;"ecode"采购单编号
+//     * @return array|bool
+//     * 创建入仓单/创建入仓预报单
+//     */
+//    public function receipt_create($param)
+//    {
+//        if (!isset($param)) {
+//            $param = $_POST;
+//        }
+//
+//        $list = $param['data']['list'];
+//        $mark = $param['data']['mark'];
+//        $ecode = $param['data']['ecode'];
+//        $warCode = $this->warCode;
+//        $worCode = $this->worcode;
+//
+//        $data = array();
+//
+//        $recModel = ReceiptDao::getInstance($warCode);
+//        $goodsModel = GoodsDao::getInstance($warCode);
+//        $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+//        $goodstoredModel = GoodstoredDao::getInstance($warCode);
+//        $positionModel = PositionDao::getInstance($warCode);
+//        $spuModel = SpuDao::getInstance($warCode);
+//        $skuModel = SkuDao::getInstance($warCode);
+//
+//        venus_db_starttrans();
+//
+//        //创建入仓单
+//        $recStatus = self::$RECEIPT_STATUS_FINISH;
+//        $addRecData = array(
+//            "worcode" => $worCode,
+//            "mark" => $mark,
+//            "status" => $recStatus
+//        );
+//        if (isset($ecode) && !empty($ecode)) {
+//            $issetOrder = $recModel->queryListByCondition(array("ecode" => $ecode));
+//            if ($issetOrder) {
+//                venus_db_rollback();
+//                $success = true;
+//                $message = '';
+//                return array($success, $data, $message);
+//            } else {
+//                $addRecData['ecode'] = $ecode;
+//            }
+//        }
+//        $recCode = $recModel->insert($addRecData);
+//
+//
+//        $posCode = $positionModel->queryByWarCode($warCode)['pos_code'];
+//
+//        //创建入仓单清单
+//        foreach ($list as $key => $value) {
+//
+//            if (empty($value['skCode'])) {
+//                venus_throw_exception(1, "sku编号不能为空");
+//                return false;
+//            }
+////            if (empty($value['skCount'])) {
+////                venus_throw_exception(1, "sku数量不能为空");
+////                return false;
+////            }
+//
+//            if (empty($value['spCode'])) {
+//                venus_throw_exception(1, "spu编号不能为空");
+//                return false;
+//            }
+//            if (empty($value['spBprice'])) {
+//                venus_throw_exception(1, "spu价格不能为空");
+//                return false;
+//            }
+//            if (empty($value['spCunit'])) {
+//                venus_throw_exception(1, "spu最小计量单位不能为空");
+//                return false;
+//            }
+//            if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['spBprice'])) {
+//                venus_throw_exception(4, "spu价格格式不正确");
+//                return false;
+//            }
+//            if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['skCount'])) {
+//                venus_throw_exception(4, "sku数量格式不正确");
+//                return false;
+//            } else {
+//                if (!empty($value['spCunit']) && $value['spCunit'] == 1) {
+//                    if (floor($value['skCount']) != $value['skCount']) {
+//                        venus_throw_exception(4, "sku数量格式不正确");
+//                        return false;
+//                    }
+//                }
+//            }
+//            if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['count'])) {
+//                venus_throw_exception(4, "spu总数量格式不正确");
+//                return false;
+//            } else {
+//                if (!empty($value['spCunit']) && $value['spCunit'] == 1) {
+//                    if (floor($value['count']) != $value['count']) {
+//                        venus_throw_exception(4, "spu总数量格式不正确");
+//                        return false;
+//                    }
+//                }
+//            }
+//            //采购单针对主仓spu插入自己仓库
+//            if (isset($value['msg'])) {
+//                $dictService = new SkudictService();
+//                $addSkuAndSpuData = $value['msg'];
+//                $addSkuAndSpuData['supCode'] = $value['supCode'];
+//                $addSpuAndSku = $dictService->valid_and_create_skudict($addSkuAndSpuData);
+//                if (!$addSpuAndSku) {
+//                    venus_db_rollback();
+//                    $message = '创建商品数据';
+//                    venus_throw_exception(2, $message);
+//                    return false;
+//                }
+//            }
+//            $addData['skucode'] = trim($value['skCode']);
+//            $addData['skucount'] = $value['skCount'];
+//            $addData['spucode'] = $value['spCode'];
+//            $addData['count'] = $value['count'];
+//            $addData['bprice'] = $value['spBprice'];
+//            $addData['supcode'] = $value['supCode'];
+//            if (!empty($isFast) && 1 == $isFast) {
+//                $addData['status'] = self::$GOODSBATCH_STATUS_PUTAWAY;
+//            } else {
+//                $addData['status'] = self::$GOODSBATCH_STATUS_CREATE;
+//            }
+//            $addData['reccode'] = $recCode;
+//            $gbcode = $goodsbatchModel->insert($addData);
+//            if (!$gbcode) {
+//                venus_db_rollback();
+//                $message = '添加入仓货品清单';
+//                venus_throw_exception(2, $message);
+//                return false;
+//            }
+//            $issetGoods = $goodsModel->queryBySpuCode($value['spCode']);
+//            if ($issetGoods) {
+//                $goodsCode = $issetGoods['goods_code'];
+//                $init = $issetGoods['goods_init'] + $value['count'];
+//                $count = $issetGoods['goods_count'] + $value['count'];
+//                $goodsRes = $goodsModel->updateCountAndInitByCode($goodsCode, $init, $count);
+//            } else {
+//                $goodsAddData = array(
+//                    'init' => $value['count'],
+//                    'count' => $value['count'],
+//                    'spucode' => $value['spCode']
+//                );
+//                $goodsRes = $goodsModel->insert($goodsAddData);
+//            }
+//
+//            $goodstoredAddData = array(
+//                'init' => $value['count'],
+//                'count' => $value['count'],
+//                'bprice' => $value['spBprice'],
+//                'gbcode' => $gbcode,
+//                'poscode' => $posCode,
+//                'spucode' => $value['spCode'],
+//                'supcode' => $value['supCode']
+//            );
+//            $goodstoredAddData['skucode'] = trim($value['skCode']);
+//            $goodstoredAddData['skucount'] = $value['skCount'];
+//            $goodstoredAddData['skuinit'] = $value['skCount'];
+//            $addGoodstoredRes = $goodstoredModel->insert($goodstoredAddData);
+//            if (!$goodsRes || !$addGoodstoredRes) {
+//                venus_db_rollback();
+//                $message = '存入库存';
+//                venus_throw_exception(2, $message);
+//                return false;
+//            }
+//        }
+//
+//        $uptRecFinish = $recModel->updateFinishTimeByCode($recCode);
+//        if (empty($uptRecFinish)) {
+//            venus_db_rollback();
+//            $message = '完成入仓单失败';
+//            venus_throw_exception(2, $message);
+//            return false;
+//        }
+//        venus_db_commit();
+//        $success = true;
+//        $message = '';
+//        return array($success, $data, $message);
+//    }
+
+    /**
+     * @param $param "list"货品列表; "mark"订单备注信息;"ecode"采购单编号
+     * @return array|bool
+     * 创建入仓单/创建入仓预报单
+     */
+    public function receipt_create($param)
+    {
+        if (!isset($param)) {
+            $param = $_POST;
+            $emptySku = 2;
+        } else {
+            $emptySku = 1;
+        }
+
+        $list = $param['data']['list'];
+        $mark = $param['data']['mark'];
+        $ecode = $param['data']['ecode'];
+        $room = $param['data']["room"];//20190311新增
+        $warCode = $this->warCode;
+        $worCode = $this->worcode;
+
+        if (empty($param['data']['type'])) {
+            $type = 1;
+        } else {
+            $type = $param['data']['type'];
+        }
+        venus_db_starttrans();
+        $data = array(
+            "type" => $type,
+            "warCode" => $warCode,
+            "worCode" => $worCode,
+            "mark" => $mark,
+            "ecode" => $ecode,
+            "room" => $room
+        );
+
+        if ($type == 2 && (empty($ecode) || $ecode == null || $ecode == '')) {
+            return array(false, array(), "订单编号不能为空");
+        }
+        foreach ($list as $value) {
+
+            if (empty($value['skCode'])) return array(false, array(), "sku编号不能为空");
+            if ($emptySku == 2 && empty($value['skCount'])) return array(false, array(), "sku数量不能为空");
+            if (empty($value['spBprice'])) return array(false, array(), "采购价格不能为空");
+            if (empty($value['supCode'])) return array(false, array(), "供应商编号不能为空");
+
+            if (empty($value['spCunit'])) return array(false, array(), "spu最小计量单位不能为空");
+            $listData = array(
+                "skucode" => trim($value['skCode']),
+                "skucount" => $value['skCount'],
+                "bprice" => $value['spBprice'],
+                "supcode" => $value["supCode"]
+            );
+
+            //采购单针对主仓spu插入自己仓库
+            if (isset($value['msg'])) {
+                $dictService = new SkudictService();
+                $addSkuAndSpuData = $value['msg'];
+                $addSkuAndSpuData['supCode'] = $value['supCode'];
+                $addSpuAndSku = $dictService->valid_and_create_skudict($addSkuAndSpuData);
+                if (!$addSpuAndSku) {
+                    venus_db_rollback();
+                    return array(false, array(), "创建商品数据");
+                }
+            }
+            $data['list'][] = $listData;
+        }
+        $warehouseService = new WarehouseService();
+        $createRecRes = $warehouseService->create_receipt($data);
+        $oosFilePath = C("FILE_SAVE_PATH") . "logs/" . date("Y-m-d", time()) . ".log";
+        $fileData = $param;
+        $fileData['recCode'] = $createRecRes[1][0];
+        $fileData = implode("\n" . PHP_EOL, $fileData);
+        file_put_contents($oosFilePath, $fileData, FILE_APPEND);
+        if ($createRecRes[0] == true) {
+            venus_db_commit();
+            return $createRecRes;
+        } else {
+            venus_db_rollback();
+            return $createRecRes;
+        }
+
+    }
+
+
+    /**
+     * @return array
+     * 入仓单管理/入仓单管理列表
+     */
+    public
+    function receipt_search()
+    {
+        $warCode = $this->warCode;
+
+        $stime = $_POST['data']['stime'];//开始时间
+        $etime = $_POST['data']['etime'];//结束时间
+        $status = $_POST['data']['status'];//状态
+        $recCode = $_POST['data']['code'];//入仓单单号
+        $pageCurrent = $_POST['data']['pageCurrent'];//当前页数
+        $clause = array();
+        if (empty($pageCurrent)) {
+            $pageCurrent = 0;
+        }
+        if (!empty($stime)) {
+            $clause['sctime'] = $stime;
+        }
+        if (!empty($etime)) {
+            $clause['ectime'] = $etime;
+        }
+
+
+        if (!empty($status)) $clause['status'] = $status;
+        if (!empty($recCode)) $clause['code'] = $recCode;
+
+        $recModel = ReceiptDao::getInstance($warCode);
+        $workerModel = WorkerDao::getInstance($warCode);
+
+        $totalCount = $recModel->queryCountByCondition($clause);
+        $pageLimit = pageLimit($totalCount, $pageCurrent);
+        $queryData = $recModel->queryListByCondition($clause, $pageLimit['page'], $pageLimit['pSize']);
+        $data = array(
+            "pageCurrent" => $pageCurrent,
+            "pageSize" => $pageLimit['pageSize'],
+            "totalCount" => $totalCount,
+        );
+        foreach ($queryData as $key => $value) {
+            $data['list'][] = array(
+                "recCode" => $value['rec_code'],
+                "recCtime" => $value['rec_ctime'],
+                "recUcode" => $value['wor_code'],
+                "recUname" => $workerModel->queryByCode($value['wor_code'])['wor_name'],
+                "recMark" => $value['rec_mark'],
+                "recType" => $value['rec_type'],
+                "recStatus" => $value['rec_status'],
+                "recStatMsg" => venus_receipt_status_desc($value['rec_status']),
+            );
+        }
+
+        $success = true;
+        $message = '';
+        return array($success, $data, $message);
+    }
+
+
+    /**
+     * @return array|bool
+     * 入仓单管理/入仓单管理之修改(1)入仓单详情
+     */
+    public
+    function receipt_detail()
+    {
+        $warCode = $this->warCode;
+
+        $pageCurrent = $_POST['data']['pageCurrent'];//当前页数
+        if (empty($pageCurrent)) $pageCurrent = 0;
+        $recCode = $_POST['data']['recCode'];
+        if (empty($recCode)) {
+            $message = "入仓单编号不能为空";
+            venus_throw_exception(1, $message);
+            return false;
+        } else {
+
+            $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+            $goodstoredModel = GoodstoredDao::getInstance($warCode);
+            $receiptModel = ReceiptDao::getInstance($warCode);
+
+            $totalCount = $goodsbatchModel->queryCountByRecCode($recCode);
+            $pageLimit = pageLimit($totalCount, $pageCurrent);
+            $queryGbList = $goodsbatchModel->queryListByRecCode($recCode, $pageLimit['page'], $pageLimit['pSize']);
+            $recData = $receiptModel->queryByCode($recCode);
+            $type = $recData['rec_type'];
+            $data = array(
+                "pageCurrent" => $pageCurrent,
+                "pageSize" => $pageLimit['pageSize'],
+                "totalCount" => $totalCount,
+            );
+            foreach ($queryGbList as $value) {
+
+                $supCode = $value['sup_code'];
+                //小仓入仓科贸供应商不可修改价格/非小仓入仓不可修改价格
+                if ($type == 2 && $supCode != "SU00000000000001") {
+                    $isUptBprice = true;
+                } else {
+                    $isUptBprice = false;
+                }
+                $data['list'][] = array(
+                    "gbCode" => $value['gb_code'],
+                    "skName" => $value['spu_name'],
+                    "skCode" => $value['sku_code'],
+                    "skNorm" => $value['sku_norm'],
+                    "skCount" => $value['sku_count'],
+                    "skUnit" => $value['sku_unit'],
+                    "spBprice" => $value['gb_bprice'],//sku总价
+                    "spCode" => $value['spu_code'],
+                    "spCount" => $value['gb_count'],
+                    "spUnit" => $value['spu_unit'],
+                    "spCunit" => $value['spu_cunit'],
+                    "posCode" => $goodstoredModel->queryPoscodeByCode($value['gb_code']),
+                    "type" => $type,
+                    "isUptBprice" => $isUptBprice,
+                );
+            }
+
+            $success = true;
+            $message = '';
+            return array($success, $data, $message);
+        }
+    }
+
+
+    /**
+     * @return array|bool
+     * 入仓单管理/入仓单管理之修改(2)修改入仓单数量
+     */
+    public
+    function receipt_goods_count_update()
+    {
+
+        $warCode = $this->warCode;
+
+        if (empty($_POST['data']['recCode'])) venus_throw_exception(1, "入仓单编号不能为空");
+        if (empty($_POST['data']['gbCode'])) venus_throw_exception(1, "入仓单货品编号不能为空");
+        if (empty($_POST['data']['skCount'])) venus_throw_exception(1, "入仓单货品sku数量不能为空");
+        if (empty($_POST['data']['spBprice'])) venus_throw_exception(1, "入仓单货品spu价格不能为空");
+        if (empty($_POST['data']['spCunit'])) venus_throw_exception(1, "入仓单货品spu最小计量单位不能为空");
+
+        $recCode = $_POST['data']['recCode'];
+        $gbCode = $_POST['data']['gbCode'];
+        $skCount = $_POST['data']['skCount'];
+        $spBprice = $_POST['data']['spBprice'];
+        $count = $_POST['data']['count'];
+        $spCunit = $_POST['data']['spCunit'];
+        if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $spBprice)) {
+            venus_throw_exception(4, "spu价格格式不正确");
+            return false;
+        }
+
+        if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $skCount)) {
+            venus_throw_exception(4, "sku数量格式不正确");
+            return false;
+        } else {
+            if (!empty($spCunit) && $spCunit == 1) {
+                if (floor($skCount) != $skCount) {
+                    venus_throw_exception(4, "sku数量格式不正确");
+                    return false;
+                }
+            }
+        }
+        if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $count)) {
+            venus_throw_exception(4, "spu总数量格式不正确");
+            return false;
+        } else {
+            if (!empty($spCunit) && $spCunit == 1) {
+                if (floor($count) != $count) {
+                    venus_throw_exception(4, "spu总数量格式不正确");
+                    return false;
+                }
+            }
+        }
+
+        $recModel = ReceiptDao::getInstance($warCode);
+        $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+
+
+        $isUpt = $recModel->queryByCode($recCode)['rec_status'];
+        if (in_array($isUpt, $this->RECEIPT_ALLOW_UPDATE)) {
+            $gbRes = $goodsbatchModel->updateByCode($gbCode, $count, $spBprice, $skCount);
+
+            if (!$gbRes) {
+                $message = "修改失败";
+                venus_throw_exception(2, $message);
+                return false;
+            } else {
+                $data['success'] = true;
+                $success = true;
+                $message = '';
+                return array($success, $data, $message);
+            }
+
+        } else {
+            venus_throw_exception(2001, '');
+            return false;
+        }
+
+    }
+
+
+    /**
+     * @return array|bool
+     *  入仓单管理之修改（3）增加入仓单货品
+     */
+    public
+    function receipt_goods_create()
+    {
+
+        $list = $_POST['data']['list'];
+
+        $warCode = $this->warCode;
+
+        $data = array();
+        $recCode = $_POST['data']['recCode'];
+        if (empty($recCode)) {
+            venus_throw_exception(1, "入仓单编号不能为空");
+        }
+
+        $recModel = ReceiptDao::getInstance($warCode);
+        $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+
+        $isUpt = $recModel->queryByCode($recCode)['rec_status'];
+        if (in_array($isUpt, $this->RECEIPT_ALLOW_UPDATE)) {
+            venus_db_starttrans();
+            //创建入仓单清单
+            foreach ($list as $key => $value) {
+                if (empty($value['skCode'])) {
+                    venus_throw_exception(1, "sku编号不能为空");
+                    return false;
+                }
+//                if (empty($value['skCount'])) {
+//                    venus_throw_exception(1, "sku数量不能为空");
+//                    return false;
+//                }
+
+                if (empty($value['spCode'])) {
+                    venus_throw_exception(1, "spu编号不能为空");
+                    return false;
+                }
+                if (empty($value['spBprice'])) {
+                    venus_throw_exception(1, "入仓单货品spu价格不能为空");
+                    return false;
+                }
+
+                if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['spBprice'])) {
+                    venus_throw_exception(4, "入仓单货品spu价格格式不正确");
+                    return false;
+                }
+
+//                if (empty($value['count'])) {
+//                    venus_throw_exception(1, "spu总数量不能为空");
+//                    return false;
+//                }
+                if (empty($value['spCunit'])) {
+                    venus_throw_exception(1, "spu最小计量单位不能为空");
+                    return false;
+                }
+
+                if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['skCount'])) {
+                    venus_throw_exception(4, "sku数量格式不正确");
+                    return false;
+                } else {
+                    if (!empty($value['spCunit']) && $value['spCunit'] == 1) {
+                        if (floor($value['skCount']) != $value['skCount']) {
+                            venus_throw_exception(4, "sku数量格式不正确");
+                            return false;
+                        }
+                    }
+                }
+                if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['count'])) {
+                    venus_throw_exception(4, "spu总数量格式不正确");
+                    return false;
+                } else {
+                    if (!empty($value['spCunit']) && $value['spCunit'] == 1) {
+                        if (floor($value['count']) != $value['count']) {
+                            venus_throw_exception(4, "spu总数量格式不正确");
+                            return false;
+                        }
+                    }
+                }
+
+                $addData = array(
+                    'skucode' => $value['skCode'],
+                    'skucount' => $value['skCount'],
+                    'spucode' => $value['spCode'],
+                    'count' => $value['count'],
+                    'bprice' => $value['spBprice'],
+                    'supcode' => $value['supCode'],
+                    'status' => self::$GOODSBATCH_STATUS_CREATE,
+                    'reccode' => $recCode,
+                );
+
+                $gbCode = $goodsbatchModel->insert($addData);
+                if (!$gbCode) {
+                    venus_db_rollback();
+                    $message = '创建入仓单清单';
+                    venus_throw_exception(2, $message);
+                    return false;
+                }
+            }
+
+            venus_db_commit();
+            $success = true;
+            $message = '';
+            return array($success, $data, $message);
+        } else {
+            venus_throw_exception(2002, '');
+            return false;
+        }
+
+    }
+
+
+    /**
+     * @return array|bool
+     * 入仓单管理之修改（4）删除入仓单货品
+     */
+    public
+    function receipt_goods_delete()
+    {
+        $warCode = $this->warCode;
+
+
+        if (empty($_POST['data']['recCode'])) {
+            venus_throw_exception(1, "入仓单编号不能为空");
+            return false;
+        }
+        if (empty($_POST['data']['gbCode'])) {
+            venus_throw_exception(1, "入仓单货品编号不能为空");
+            return false;
+        }
+        $recCode = $_POST['data']['recCode'];
+        $gbCode = $_POST['data']['gbCode'];
+        $data = array();
+
+        $recModel = ReceiptDao::getInstance($warCode);
+        $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+
+        $isUpt = $recModel->queryByCode($recCode)['rec_status'];
+        if (in_array($isUpt, $this->RECEIPT_ALLOW_UPDATE)) {
+            $gbUptRes = $goodsbatchModel->deleteByCode($gbCode, $recCode);
+            if (!$gbUptRes) {
+                venus_throw_exception(2, '删除入仓单货品');
+                return false;
+            } else {
+                $success = true;
+                $message = '';
+                return array($success, $data, $message);
+            }
+        } else {
+            venus_throw_exception(2003, '');
+            return false;
+        }
+
+    }
+
+
+    /**
+     * @return array|bool
+     * 入仓单管理/入仓单管理之删除
+     */
+    public
+    function receipt_delete()
+    {
+        $warCode = $this->warCode;
+
+        if (empty($_POST['data']['recCode'])) {
+            venus_throw_exception(1, "入仓单编号不能为空");
+            return false;
+        }
+        $data = array();
+        $recCode = $_POST['data']['recCode'];
+
+        $recModel = ReceiptDao::getInstance($warCode);
+
+        $isUpt = $recModel->queryByCode($recCode)['rec_status'];
+        if (in_array($isUpt, $this->RECEIPT_ALLOW_UPDATE)) {
+            $recStatus = self::$RECEIPT_STATUS_CANCEL;
+            $uptRec = $recModel->updateStatusByCode($recCode, $recStatus);
+            if (!$uptRec) {
+                $message = '删除入仓单';
+                venus_throw_exception(2, $message);
+                return false;
+            } else {
+                $success = true;
+                $message = '';
+                return array($success, $data, $message);
+            }
+        } else {
+            venus_throw_exception(2003, '');
+            return false;
+        }
+    }
+
+    /**
+     * @return array|bool
+     * 快进快出
+     */
+//    public function receipt_inv_finish()
+//    {
+//        $type = 1;//pc端，手工记账
+//        $warCode = $this->warCode;
+//        $worCode = $this->worcode;
+//        $receiver = $this->worRname;//客户名称
+//        $phone = $this->worPhone;//客户手机号
+//        $address = $this->warAddress;//客户地址
+//        $postal = $this->warPostal;//客户邮编
+//        $ctime = date("Y-m-d", time()) . " 06:00:00";
+//
+//        $goodsList = $_POST['data']['list'];
+//        $room = $_POST['data']['room'];
+//
+//        $ordergoodsModel = OrdergoodsDao::getInstance($warCode);
+//        $orderModel = OrderDao::getInstance($warCode);
+//        $recModel = ReceiptDao::getInstance($warCode);
+//        $goodsModel = GoodsDao::getInstance($warCode);
+//        $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+//        $goodstoredModel = GoodstoredDao::getInstance($warCode);
+//        $positionModel = PositionDao::getInstance($warCode);
+//        $invModel = InvoiceDao::getInstance($warCode);
+//        $igoodsModel = IgoodsDao::getInstance($warCode);
+//        $igoodsentModel = IgoodsentDao::getInstance($warCode);
+//        $spuModel = SpuDao::getInstance($warCode);
+//        venus_db_starttrans();
+//        $gsSpuDataArr = array();
+//        $invSpuDataArr = array();
+//
+//        $recStatus = self::$RECEIPT_STATUS_FINISH;
+//        $addRecData = array(
+//            "worcode" => $worCode,
+//            "status" => $recStatus
+//        );
+//        $recCode = $recModel->insert($addRecData);
+//        //创建入仓单清单
+//        foreach ($goodsList as $key => $value) {
+//
+//            if (empty($value['skCode'])) {
+//                venus_throw_exception(1, "sku编号不能为空");
+//                return false;
+//            }
+//            if (empty($value['skCount'])) {
+//                venus_throw_exception(1, "sku数量不能为空");
+//                return false;
+//            }
+//
+//            if (empty($value['spCode'])) {
+//                venus_throw_exception(1, "spu编号不能为空");
+//                return false;
+//            }
+//            if (empty($value['supCode'])) {
+//                venus_throw_exception(1, "供应商编号不能为空");
+//                return false;
+//            }
+//            if (empty($value['spBprice'])) {
+//                venus_throw_exception(1, "spu价格格式不能为空");
+//                return false;
+//            }
+//            if (empty($value['spCunit'])) {
+//                venus_throw_exception(1, "spu最小计量单位不能为空");
+//                return false;
+//            }
+//            if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['spBprice'])) {
+//                venus_throw_exception(4, "spu价格格式不正确");
+//                return false;
+//            }
+//            if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['skCount'])) {
+//                venus_throw_exception(4, "sku数量格式不正确");
+//                return false;
+//            } else {
+//                if (!empty($value['spCunit']) && $value['spCunit'] == 1) {
+//                    if (floor($value['skCount']) != $value['skCount']) {
+//                        venus_throw_exception(4, "sku数量格式不正确");
+//                        return false;
+//                    }
+//                }
+//            }
+//            if (!preg_match('/^[0-9]+(.[0-9]{1,2})?$/', $value['count'])) {
+//                venus_throw_exception(4, "spu总数量格式不正确");
+//                return false;
+//            } else {
+//                if (!empty($value['spCunit']) && $value['spCunit'] == 1) {
+//                    if (floor($value['count']) != $value['count']) {
+//                        venus_throw_exception(4, "spu总数量格式不正确");
+//                        return false;
+//                    }
+//                }
+//            }
+//            $addData['skucode'] = trim($value['skCode']);
+//            $addData['skucount'] = $value['skCount'];
+//            $addData['spucode'] = $value['spCode'];
+//            $addData['count'] = $value['count'];
+//            $addData['bprice'] = $value['spBprice'];
+//            $addData['supcode'] = $value['supCode'];
+//            $addData['status'] = self::$GOODSBATCH_STATUS_FINISH;
+//            $addData['reccode'] = $recCode;
+//            $gbcode = $goodsbatchModel->insert($addData);
+//            $invSpuData[] = $addData;
+//            if (!$gbcode) {
+//                venus_db_rollback();
+//                $message = '添加入仓货品清单';
+//                venus_throw_exception(2, $message);
+//                return false;
+//            }
+//            $issetGoods = $goodsModel->queryBySpuCode($value['spCode']);
+//            if ($issetGoods) {
+//                $goodsCode = $issetGoods['goods_code'];
+//                $init = $issetGoods['goods_init'] + $value['count'];
+//                $count = $issetGoods['goods_count'] + $value['count'];
+//                $goodsRes = $goodsModel->updateCountAndInitByCode($goodsCode, $init, $count);
+//            } else {
+//                $goodsAddData = array(
+//                    'init' => $value['count'],
+//                    'count' => $value['count'],
+//                    'spucode' => $value['spCode']
+//                );
+//                $goodsRes = $goodsModel->insert($goodsAddData);
+//            }
+//
+//            $goodstoredAddData = array(
+//                'init' => $value['count'],
+//                'count' => $value['count'],
+//                'bprice' => $value['spBprice'],
+//                'gbcode' => $gbcode,
+//                'spucode' => $value['spCode'],
+//                'supcode' => $value['supCode']
+//            );
+//            $goodstoredAddData['skucode'] = trim($value['skCode']);
+//            $goodstoredAddData['skucount'] = $value['skCount'];
+//            $goodstoredAddData['skuinit'] = $value['skCount'];
+//            $addGoodstoredRes = $goodstoredModel->insert($goodstoredAddData);
+//            $gsSpuDataArr[$value['spCode']] = $goodstoredAddData;
+//            $gsSpuDataArr[$value['spCode']]['gscode'] = $addGoodstoredRes;
+//            if (!$goodsRes || !$addGoodstoredRes) {
+//                venus_db_rollback();
+//                $message = '存入库存';
+//                venus_throw_exception(2, $message);
+//                return false;
+//            }
+//
+//        }
+//
+//        $uptRecFinish = $recModel->updateFinishTimeByCode($recCode);
+//        if (empty($uptRecFinish)) {
+//            venus_db_rollback();
+//            $message = '完成入仓单失败';
+//            venus_throw_exception(2, $message);
+//            return false;
+//        }
+//
+//        $igoodsDataList = array();
+//        $invAddData = array(
+//            "status" => 5,//出仓单状态
+//            "receiver" => $receiver,//客户名称
+//            "phone" => $phone,//客户手机号
+//            "address" => $address,//客户地址
+//            "postal" => $postal,//客户邮编
+//            "type" => $type,//出仓单类型
+//            "room" => $room,//餐厅编号
+//            "worcode" => $worCode,//人员编号
+//        );//出仓单新增数据
+//        $invCode = $invModel->insert($invAddData);
+//        if (!$invCode) {
+//            venus_db_rollback();
+//            $message = '创建出仓单失败';
+//            venus_throw_exception(2, $message);
+//            return false;
+//        }
+//        foreach ($invSpuData as $invSpuDatum) {
+//            $spuData = $spuModel->queryByCode($invSpuDatum['spucode']);//获取spu商品相关信息
+//            if (!empty($spuData['spu_sprice'])) {
+//                $sprice = $spuData['spu_sprice'];//spu当前销售价
+//            } else {
+//                $sprice = 0;
+//            }
+//            if (!empty($spuData['pro_price'])) {
+//                $pprice = $spuData['pro_price'];//spu利润价
+//            } else {
+//                $pprice = 0;
+//            }
+//            if (!empty($spuData['pro_percent'])) {
+//                $percent = $spuData['pro_percent'];//spu利润率
+//            } else {
+//                $percent = 0;
+//            }
+//            $goodsData = $goodsModel->queryBySpuCode($invSpuDatum['spucode']);
+//            $gsCode = $gsSpuDataArr[$invSpuDatum['spucode']]['gscode'];
+//            $addIgoData = array(
+//                "count" => $invSpuDatum['count'],//spu总数量
+//                "spucode" => $invSpuDatum['spucode'],//spu编号
+//                "sprice" => $sprice,//spu当前销售价
+//                "pprice" => $pprice,//spu当前利润
+//                "goodscode" => $goodsData['goods_code'],//库存编号
+//                "percent" => $percent,//spu当前利润率
+//                "skucode" => $invSpuDatum['skucode'],//sku编号
+//                "skucount" => $invSpuDatum['skucount'],//sku数量
+//                "invcode" => $invCode,//所属出仓单单号
+//            );
+//            $addIgoRes = $igoodsModel->insert($addIgoData);
+//            $igoodsentData = array(
+//                "count" => $invSpuDatum['count'],
+//                "bprice" => $gsSpuDataArr[$invSpuDatum['spucode']]['bprice'],
+//                "spucode" => $invSpuDatum['spucode'],
+//                "gscode" => $gsCode,
+//                "igocode" => $addIgoRes,
+//                "skucode" => $invSpuDatum['skucode'],
+//                "skucount" => floatval($invSpuDatum['skucount']),
+//                "invcode" => $invCode,
+//            );
+//            $igoodsentCode = $igoodsentModel->insert($igoodsentData);
+//            $gsSkuCount = $gsSpuDataArr[$invSpuDatum['spucode']]['skucount'];
+//            $goodsoredCount = $gsSpuDataArr[$invSpuDatum['spucode']]['count'];
+//            $uptGsSpuCount = $goodstoredModel->updateByCode($gsCode, $goodsoredCount - $igoodsentData['count']);//修改发货库存批次剩余数量
+//            $uptGsSkuCount = $goodstoredModel->updateSkuCountByCode($gsCode, $gsSkuCount - $igoodsentData['skucount']);//减少发货库存批次sku数量
+//            if (!$igoodsentCode) {
+//                venus_db_rollback();
+//                venus_throw_exception(2, "创建发货批次失败");
+//                return false;
+//            }
+//
+//            if (!$addIgoRes) {
+//                venus_db_rollback();
+//                $message = '创建出仓单货品失败';
+//                venus_throw_exception(2, $message);
+//                return false;
+//            }
+//
+//            if (!$uptGsSpuCount || !$uptGsSkuCount) {
+//                $spName = $spuModel->queryByCode($invSpuDatum['spucode'])['spu_name'];
+//                venus_db_rollback();
+//                venus_throw_exception(2, "修改" . $spName . "库存批次失败");
+//                return false;
+//            }
+//            if (!$igoodsentCode) {
+//                venus_db_rollback();
+//                venus_throw_exception(2, "创建发货批次失败");
+//                return false;
+//            }
+//            $goodsData = $goodsModel->queryBySpuCode($invSpuDatum['spucode']);
+//            $goodsCount = $goodsData['goods_count'];
+//            $igoCount = $addIgoData['count'];
+//            $newCountGoods = $goodsCount - $igoCount;
+//            $uptGoods = $goodsModel->updateCountByCode($goodsData['goods_code'], $goodsData['goods_count'], $newCountGoods);
+//            if (!$uptGoods) {
+//                venus_db_rollback();
+//                venus_throw_exception(2, "修改库存失败");
+//                return false;
+//            }
+//        }
+//        venus_db_commit();
+//        $success = true;
+//        $message = '快进快出成功';
+//        $data = array();
+//        return array($success, $data, $message);
+//    }
+
+    /**
+     * @return array
+     * 快进快出
+     */
+    public function receipt_inv_finish($param)
+    {
+        if (!isset($param)) {
+            $param = $_POST;
+            $emptySku = 2;
+            $recType = 1;
+        } else {
+            $emptySku = 1;
+            $recType = $param['data']["recType"];
+        }
+
+        $warCode = $this->warCode;
+        $worCode = $this->worcode;
+        $receiver = $this->worRname;//客户名称
+        $phone = $this->worPhone;//客户手机号
+        $address = $this->warAddress;//客户地址
+        $postal = $this->warPostal;//客户邮编
+        $goodsList = $param['data']['listFast'];
+        $room = $param['data']['room'];
+        $mark = $param['data']["mark"];
+        $ecode = $param['data']["ecode"];
+        if (empty($recType)) return array(false, array(), "入仓单类型不能为空");
+
+        venus_db_starttrans();
+        $data = array(
+            "recType" => $recType,
+            "invType" => 5,
+            "warCode" => $warCode,
+            "worCode" => $worCode,
+            "mark" => $mark,
+            "phone" => $phone,
+            "address" => $address,
+            "postal" => $postal,
+            "receiver" => $receiver,
+            "room" => $room,
+            "ecode" => $ecode
+        );
+
+        foreach ($goodsList as $value) {
+
+            if (empty($value['skCode'])) return array(false, array(), "sku编号不能为空");
+            if ($emptySku == 2 && empty($value['skCount'])) return array(false, array(), "sku数量不能为空");
+            if (empty($value['spBprice'])) return array(false, array(), "采购价格不能为空");
+            if (empty($value['supCode'])) return array(false, array(), "供应商编号不能为空");
+
+            if (empty($value['spCunit'])) return array(false, array(), "spu最小计量单位不能为空");
+
+            //采购单针对主仓spu插入自己仓库
+            if (isset($value['msg'])) {
+                $dictService = new SkudictService();
+                $addSkuAndSpuData = $value['msg'];
+                $addSkuAndSpuData['supCode'] = $value['supCode'];
+                $addSpuAndSku = $dictService->valid_and_create_skudict($addSkuAndSpuData);
+                if (!$addSpuAndSku) {
+                    venus_db_rollback();
+                    return array(false, array(), "创建商品数据");
+                }
+            }
+            $listData = array(
+                "skucode" => trim($value['skCode']),
+                "skucount" => $value['skCount'],
+                "bprice" => $value['spBprice'],
+                "supcode" => $value["supCode"]
+            );
+            $data['list'][] = $listData;
+        }
+        $warehouseService = new WarehouseService();
+        $createVirtualRes = $warehouseService->create_virtual($data);
+        if ($createVirtualRes[0] == true) {
+            venus_db_commit();
+            return $createVirtualRes;
+        } else {
+            venus_db_rollback();
+            return $createVirtualRes;
+        }
+    }
+
+    /**
+     * @return array|bool
+     * 表格创建入仓单
+     */
+    public function rec_import()
+    {
+        $warCode = $this->warCode;//仓库编号
+        //声明所需要用的Model及服务
+        $excelService = ExcelService::getInstance();
+        $spuModel = SpuDao::getInstance($warCode);
+        $skuModel = SkuDao::getInstance($warCode);
+
+        $fileContent = $excelService->upload("file");//导入文件
+
+        $dicts = array(
+            "A" => "skCode",//sku编号
+            "D" => "skCount",//sku数量
+            "E" => "skBprice",//sku采购价格
+            "F" => "supCode",//sku供应商编号
+        );
+        $skuList = array();
+        if (count($fileContent) == 1) {
+            $recListData = array();
+            $listSkuData = array();
+            foreach ($fileContent as $sheetName => $list) {
+                unset($list[0]);
+                $skuList = array_merge($skuList, $list);
+                foreach ($skuList as $line => $skuItem) {
+                    $skuData = array();
+                    foreach ($dicts as $col => $key) {
+                        $skuData[$key] = isset($skuItem[$col]) ? $skuItem[$col] : "";
+                    }
+                    if (count(array_keys($skuItem, "")) == count($skuItem)) {
+                        break;
+                    } else {
+                        $data = array(
+                            "skCode" => $skuData['skCode'],
+                            "bprice" => $skuData['skBprice'],
+                            "supCode" => $skuData['supCode'],
+                        );
+                        $skuInfo = $skuModel->queryByCode($skuData['skCode']);
+                        $spCunit = $skuInfo['spu_cunit'];
+                        if ($spCunit == 1) {
+                            $float = 0;
+                        } elseif ($spCunit == "0.1") {
+                            $float = 1;
+                        } else {
+                            $float = 2;
+                        }
+                        if (in_array($data, $listSkuData)) {
+                            $skuLine = array_keys($listSkuData, $data);
+                            $skuLine = $skuLine[0];
+                            $recListData[$skuLine]['skCount'] = bcadd($recListData[$skuLine]['skCount'], $skuData['skCount'], $float);
+                            $recListData[$skuLine]['count'] = bcmul($recListData[$skuLine]['skCount'], $skuInfo['spu_count'], $float);
+                            continue;
+                        } else {
+                            $listSkuData[$line] = $data;
+                            $recListData[$line] = $skuData;
+                            $recListData[$line]['spCode'] = $skuInfo['spu_code'];
+                            $recListData[$line]['spBprice'] = bcdiv($skuData['skBprice'], $skuInfo['spu_count'], 2);
+                            $recListData[$line]['spCunit'] = $skuInfo['spu_cunit'];
+                            $recListData[$line]['count'] = bcmul($skuData['skCount'], $skuInfo['spu_count'], $float);
+                        }
+                    }
+                }
+            }
+            $param = array(
+                "data" => array(
+                    "list" => $recListData,
+                    "mark" => "表格创建入仓单",
+                )
+            );
+            return $this->receipt_create($param);
+
+        } else {
+            $success = false;
+            $message = "表格不符合要求，有多个分表";
+            return array($success, array(), $message);
+        }
+    }
+
+    public function receipt_order($param)
+    {
+        $isSuccess = true;
+
+        $warCode = $this->warCode;
+        $worCode = $this->worcode;
+        $receiver = $this->worRname;//客户名称
+        $phone = $this->worPhone;//客户手机号
+        $address = $this->warAddress;//客户地址
+        $postal = $this->warPostal;//客户邮编
+        $list = $param['data']['list'];
+        $goodsList = $param['data']['listFast'];
+        $room = $param['data']['room'];
+        $mark = $param['data']["mark"];
+        $ecode = $param['data']['ecode'];
+        $recType = $param['data']["recType"];
+        if (empty($recType)) return array(false, array(), "入仓单类型不能为空");
+        venus_db_starttrans();
+        $warehouseService = new WarehouseService();
+        $errData = array();
+        if (!empty($list)) {
+            $mark = $param['data']['mark'];
+            $data = array(
+                "type" => $recType,
+                "warCode" => $warCode,
+                "worCode" => $worCode,
+                "mark" => $mark,
+                "ecode" => $ecode,
+                "room" => $room
+            );
+
+            foreach ($list as $value) {
+
+                if (empty($value['skCode'])) return array(false, array(), "sku编号不能为空");
+                if (empty($value['spBprice'])) return array(false, array(), "采购价格不能为空");
+                if (empty($value['supCode'])) return array(false, array(), "供应商编号不能为空");
+                if (empty($value['spCunit'])) return array(false, array(), "spu最小计量单位不能为空");
+                $listData = array(
+                    "skucode" => trim($value['skCode']),
+                    "skucount" => $value['skCount'],
+                    "bprice" => $value['spBprice'],
+                    "supcode" => $value["supCode"]
+                );
+
+                //采购单针对主仓spu插入自己仓库
+                if (isset($value['msg'])) {
+                    $dictService = new SkudictService();
+                    $addSkuAndSpuData = $value['msg'];
+                    $addSkuAndSpuData['supCode'] = $value['supCode'];
+                    $addSpuAndSku = $dictService->valid_and_create_skudict($addSkuAndSpuData);
+                    if (!$addSpuAndSku) {
+                        venus_db_rollback();
+                        return array(false, array(), "创建商品数据");
+                    }
+                }
+                $data['list'][] = $listData;
+            }
+            $createRecRes = $warehouseService->create_receipt($data);
+            $message = $createRecRes[2];
+            $isSuccess = $isSuccess && $createRecRes[0];
+            $errData[] = $createRecRes[1];
+        }
+        if (!empty($goodsList)) {
+            $goodsData = array(
+                "recType" => $recType,
+                "invType" => 5,
+                "warCode" => $warCode,
+                "worCode" => $worCode,
+                "mark" => $mark,
+                "phone" => $phone,
+                "address" => $address,
+                "postal" => $postal,
+                "receiver" => $receiver,
+                "room" => $room,
+                "ecode" => $ecode
+            );
+            foreach ($goodsList as $value) {
+
+                if (empty($value['skCode'])) return array(false, array(), "sku编号不能为空");
+                if (empty($value['spBprice'])) return array(false, array(), "采购价格不能为空");
+                if (empty($value['supCode'])) return array(false, array(), "供应商编号不能为空");
+
+                if (empty($value['spCunit'])) return array(false, array(), "spu最小计量单位不能为空");
+
+                //采购单针对主仓spu插入自己仓库
+                if (isset($value['msg'])) {
+                    $dictService = new SkudictService();
+                    $addSkuAndSpuData = $value['msg'];
+                    $addSkuAndSpuData['supCode'] = $value['supCode'];
+                    $addSpuAndSku = $dictService->valid_and_create_skudict($addSkuAndSpuData);
+                    if (!$addSpuAndSku) {
+                        venus_db_rollback();
+                        return array(false, array(), "创建商品数据");
+                    }
+                }
+                $listData = array(
+                    "skucode" => trim($value['skCode']),
+                    "skucount" => $value['skCount'],
+                    "bprice" => $value['spBprice'],
+                    "supcode" => $value["supCode"]
+                );
+                $goodsData['list'][] = $listData;
+            }
+            $createVirtualRes = $warehouseService->create_virtual($goodsData);
+            $message = $createVirtualRes[2];
+            $isSuccess = $isSuccess && $createVirtualRes[0];
+            $errData[] = $createVirtualRes[1];
+        }
+//
+        if ($isSuccess) {
+            venus_db_commit();
+            return array(true, array(), $message);
+        } else {
+            venus_db_rollback();
+            return array(false, array(), $message);
+        }
+    }
+
+    /**
+     * @param $param
+     * @return array
+     * 修改入仓单货品数量
+     */
+    public function update_receipt_goods($param)
+    {
+        $warCode = $this->warCode;
+        if (!isset($param)) {
+            $param = $_POST;
+        }
+        $gbCode = $param["data"]['code'];
+        $count = $param["data"]['count'];
+
+        if (empty($gbCode)) return array(false, array(), "批次编号不能为空");
+        if ($count == null || $count < 0) return array(false, array(), "数量为空或者小于0");
+        $goodstoredModel = GoodstoredDao::getInstance($warCode);
+        $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+        $goodsModel = GoodsDao::getInstance($warCode);
+        $receiptModel = ReceiptDao::getInstance($warCode);
+
+        $gbData = $goodsbatchModel->queryByCode($gbCode);
+        $recCode = $gbData['rec_code'];
+        $recData = $receiptModel->queryByCode($recCode);
+        if ($recData['rec_type'] == 2) return array(false, array(), "此入仓单为小程序入仓，请在小程序进行相关操作");
+        $lessCount = bcsub($gbData['gb_count'], $count, 2);
+        $gsData = $goodstoredModel->queryByGbCode($gbCode);
+        $gsCode = $gsData['gs_code'];
+        if ($gsData['sku_count'] < $lessCount) {
+            $success = false;
+            $data = "";
+            $message = "此批次修改数量最多为" . $gsData['sku_count'];
+        } else {
+
+            venus_db_starttrans();
+            $isSuccess = true;
+
+            $gsInit = $gsData['gs_init'];
+            $gsSkuInit = $gsData['sku_init'];
+            $gsCount = $gsData['gs_count'];
+            $gsSkuCount = $gsData['sku_count'];
+
+            if ($count == 0) {
+                $isSuccess = $isSuccess && $goodsbatchModel->deleteByCode($gbCode, $recCode);
+                $isSuccess = $isSuccess && $goodstoredModel->deleteByCode($gsCode);
+                $issetGbList = $goodsbatchModel->queryCountByRecCode($recCode);
+                if ($issetGbList == 0) $isSuccess = $isSuccess && $receiptModel->deleteByCode($recCode);
+            } else {
+                $gbSkuCount = $gbData['sku_count'];
+                $gbCount = $gbData['gb_count'];
+                $updateGbCount = bcsub($gbCount, $lessCount, 2);
+                $updateGbSkuCount = bcsub($gbSkuCount, $lessCount, 2);
+                $isSuccess = $isSuccess && $goodsbatchModel->updateCountAndSkuCountByCodeAndCurrentCount($gbCode, $gbCount, $updateGbCount, $updateGbSkuCount);
+                if ($count != $updateGbCount) return array(false, array(), "计算失败");
+                $updateGsInit = bcsub($gsInit, $lessCount, 2);
+                $updateGsSkuInit = bcsub($gsSkuInit, $lessCount, 2);
+                $updateGsCount = bcsub($gsCount, $lessCount, 2);
+                $updateGsSkuCount = bcsub($gsSkuCount, $lessCount, 2);
+                $isSuccess = $isSuccess && $goodstoredModel->updateInitAndSkuInitAndCountAndSkuCountByCode($gsCode, $updateGsInit, $updateGsCount, $updateGsSkuInit, $updateGsSkuCount);
+            }
+            $spuCode = $gbData['spu_code'];
+            $goodsData = $goodsModel->queryBySpuCode($spuCode);
+            $goodsCode = $goodsData['goods_code'];
+            $goodsInit = $goodsData['goods_init'];
+            $goodsCount = $goodsData['goods_count'];
+            $updateGoodsInit = bcsub($goodsInit, $lessCount, 2);
+            $updateGoodsCount = bcsub($goodsCount, $lessCount, 2);
+            $isSuccess = $isSuccess && $goodsModel->updateCountAndInitByCode($goodsCode, $updateGoodsInit, $updateGoodsCount);
+            if (!$isSuccess) {
+                venus_db_rollback();
+                $success = false;
+                $data = "";
+                $message = "修改数量失败";
+            } else {
+                venus_db_starttrans();
+                $success = true;
+                $data = "";
+                $message = "修改数量成功";
+            }
+        }
+        return array($success, $data, $message);
+    }
+
+    /**
+     * @param $param
+     * @return array
+     * 根据货品批次修改入仓单货品价格
+     */
+    public function update_receipt_goods_bprice($param)
+    {
+        $warCode = $this->warCode;
+        if (!isset($param)) {
+            $param = $_POST;
+        }
+        $gbCode = $param["data"]['code'];
+        $bprice = $param["data"]['bprice'];
+
+        if (empty($gbCode)) return array(false, array(), "批次编号不能为空");
+        if (empty($bprice)) return array(false, array(), "价格不能为空");
+        if ($bprice < 0) return array(false, array(), "价格不能小于0");
+        $goodstoredModel = GoodstoredDao::getInstance($warCode);
+        $goodsbatchModel = GoodsbatchDao::getInstance($warCode);
+        $receiptModel = ReceiptDao::getInstance($warCode);
+        $igoodsentModel = IgoodsentDao::getInstance($warCode);
+
+        $gbData = $goodsbatchModel->queryByCode($gbCode);
+        $supCode = $gbData['sup_code'];
+        $recCode = $gbData['rec_code'];
+        $recData = $receiptModel->queryByCode($recCode);
+        if ($recData['rec_type'] != 2) return array(false, array(), "非小程序入仓不可修改价格");
+        if ($supCode == "SU00000000000001") return array(false, array(), "只有非科贸供应商的货品可以修改价格");
+
+        $gsData = $goodstoredModel->queryByGbCode($gbCode);
+        $gsCode = $gsData['gs_code'];
+        $igsClause = array(
+            "gscode" => $gsCode
+        );
+        $igoodsentData = $igoodsentModel->queryListByCondition($igsClause, 0, 1000);
+        $igoodsentCodeArr = array_unique(array_column($igoodsentData, "igs_code"));
+        $isSuccess = true;
+        venus_db_starttrans();
+        $isSuccess = $isSuccess && $goodsbatchModel->updateBpriceByCode($gbCode, $bprice);
+        $isSuccess = $isSuccess && $goodstoredModel->updateBpriceByCode($gsCode, $bprice);
+        if (!empty($igoodsentCodeArr)) {
+            foreach ($igoodsentCodeArr as $igoodsentCode) {
+                $isSuccess = $isSuccess && $igoodsentModel->updateBpriceByCode($igoodsentCode, $bprice);
+            }
+        }
+        if ($isSuccess) {
+            venus_db_commit();
+            $success = true;
+            $message = "修改采购价成功";
+        } else {
+            venus_db_rollback();
+            $success = false;
+            $message = "修改采购价失败，请重新尝试";
+        }
+        return array($success, array(), $message);
+    }
+}

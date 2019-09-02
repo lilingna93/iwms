@@ -1,0 +1,216 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: lingn
+ * Date: 2018/7/18
+ * Time: 14:23
+ */
+
+namespace Wms\Service;
+
+
+use Common\Service\PassportService;
+use Wms\Dao\SupplierDao;
+use Wms\Dao\WarehouseDao;
+use Wms\Dao\WorkerDao;
+use Wms\Dao\UserDao;
+
+class AuthService
+{
+    private static $_instance;
+
+    public static function getInstance()
+    {
+        if (!(self::$_instance instanceof self)) {
+            self::$_instance = new self();
+        }
+        return self::$_instance;
+    }
+
+    public function __construct()
+    {
+    }
+
+    //平台系统登录
+    public function login($param)
+    {
+        if (!isset($param)) {
+            $param = $_POST;
+        }
+        $name = $param['data']['name'];
+        $pwd = $param['data']['pwd'];
+        $password = venus_auth_password($pwd);
+        $workerData = WorkerDao::getInstance()->queryByNameAndPassword($name, $password);
+
+        if (isset($workerData)) {
+            //当前账户所属仓库的客户仓库信息
+            $warehouses = WarehouseDao::getInstance()->queryClientShowList();
+            $warehouses[] = array("war_name" => "全部", "war_code" => "0", "war_address" => "", "war_postal" => "", "war_info" => "");
+            $workerData["warehouses"] = array_reverse($warehouses);
+            //当前所属仓库所办函的餐厅信息
+            $suppliers = SupplierDao::getInstance()->queryAllList();
+            $suppliers[] = array("sup_name" => "全部", "sup_code" => "0");
+            $workerData["suppliers"] = array_reverse($suppliers);
+            //出仓单类型
+            $workerData["invoice_type"] = array(
+                array("code" => "5", "label" => "领用出仓"),
+                array("code" => "6", "label" => "退货出仓"),
+                array("code" => "7", "label" => "损耗出仓"),
+            );
+            //创建出仓单时的类型
+            $workerData["create_invoice_type"] = array(
+                array("code" => "5", "label" => "领用出仓"),
+                array("code" => "7", "label" => "损耗出仓"),
+            );
+            //入仓单类型
+            $workerData["receipt_type"] = array(
+                array("code" => "1", "label" => "采购入仓"),
+                array("code" => "2", "label" => "小程序入仓"),
+            );
+            //报表类型
+            $workerData["spu_reptype"] = array(
+                array("code" => "1", "label" => "蔬菜"),
+                array("code" => "2", "label" => "水果"),
+                array("code" => "3", "label" => "奶制品"),
+                array("code" => "4", "label" => "豆制品"),
+                array("code" => "5", "label" => "猪肉"),
+                array("code" => "6", "label" => "牛羊肉"),
+                array("code" => "7", "label" => "禽类"),
+                array("code" => "8", "label" => "水产(海鲜)"),
+                array("code" => "9", "label" => "蛋类"),
+                array("code" => "10", "label" => "米"),
+                array("code" => "11", "label" => "面"),
+                array("code" => "12", "label" => "杂粮"),
+                array("code" => "13", "label" => "油"),
+                array("code" => "14", "label" => "调料"),
+                array("code" => "15", "label" => "干货"),
+                array("code" => "16", "label" => "酒水饮料"),
+                array("code" => "17", "label" => "物料"),
+                array("code" => "18", "label" => "小食品"),
+            );
+            //写入登录数据
+            $success = PassportService::getInstance()->login($workerData);
+            return array($success, "", $success ? "" : "登录失败,当前服务不可用");
+        }
+        return array(false, "", "登录失败,用户名或密码错误");
+
+    }
+
+    public function updateBaseInfor()
+    {
+        $workerData = PassportService::getInstance()->loginUser();
+        if (isset($workerData)) {
+            //当前账户所属仓库的客户仓库信息
+            $warehouses = WarehouseDao::getInstance()->queryClientShowList();
+            $warehouses[] = array("war_name" => "全部", "war_code" => "0", "war_address" => "", "war_postal" => "", "war_info" => "");
+            $workerData["warehouses"] = array_reverse($warehouses);
+            //当前所属仓库所办函的餐厅信息
+            $suppliers = SupplierDao::getInstance()->queryAllList();
+            $suppliers[] = array("sup_name" => "全部", "sup_code" => "0");
+            $workerData["suppliers"] = array_reverse($suppliers);
+            //写入登录数据
+            return PassportService::getInstance()->login($workerData);
+        }
+        return false;
+    }
+
+    public function logout()
+    {
+        PassportService::logout();
+        return array(true, "", "退出账户成功");
+    }
+
+    //平台远程登录，通过将token设置为sessionid模拟当前登录
+    public function remotelogin($token, $customsess = true)
+    {
+        $customsess && session_id($token);
+        $userData = PassportService::getInstance()->loginUser();
+        if (isset($userData) && $token == $userData["wor_token"]) {
+            return true;
+        }
+        return $this->quicklogin($token);
+    }
+
+    //平台快速登录，通过token来实现登录状态
+    public function quicklogin($token)
+    {
+        $userData = WorkerDao::getInstance()->queryByToken($token);
+        if (isset($userData)) {
+            return PassportService::getInstance()->login($userData);
+        }
+        return false;
+    }
+
+    //小程序账户登录，登录后获取登录账户信息
+    public function wxlogin()
+    {
+        $post = json_decode($_POST['data'], true);
+        $code = $post["code"];
+        $wxcode = venus_request_weixin_openid($code);
+        $userData = UserDao::getInstance()->queryByWxCode($wxcode);
+        if (isset($userData)) {
+            $success = PassportService::getInstance()->login($userData, "oms");
+            $data = array(
+                "warehousecode" => $userData["warehousecode"],
+                "name" => $userData["user_name"],
+                "rname" => $userData["wor_rname"],
+                "phone" => $userData["user_phone"],
+                "wxcode" => $userData["user_wxcode"],
+                "token" => $userData["user_token"],
+                "worcode" => $userData["wor_code"],
+                "worname" => $userData["wor_name"],
+                "warcode" => $userData["war_code"],
+                "warname" => $userData["war_name"],
+                "waraddress" => $userData["war_address"],
+                "warpostal" => $userData["war_postal"],
+                "appver" => C("VERSION"),
+                "skuver" => $this->skuversion($userData["warehousecode"], $userData["war_code"]),
+                "imgver" => C("SKU_IMG_VERSION"),
+                "callcenter" => "18600000001",
+            );
+            return array($success, $data, $success ? "" : "登录失败,当前服务不可用");
+        }
+        return array(false, "", "登录失败,用户名或密码错误");
+    }
+
+    //小程序账户激活，激活后获取登录账户信息
+    public function wxactive()
+    {
+        $post = json_decode($_POST['data'], true);
+        $code = $post["code"];
+        $phone = $post["phone"];
+        //$vcode = $post["vcode"];
+        $userData = UserDao::getInstance()->queryByPhone($phone);
+        if (isset($userData)) {
+            $wxcode = venus_request_weixin_openid($code);
+            if ($wxcode == $userData["user_wxcode"]) {
+                return array(true, "", "账户已经激活");
+            } else {
+                $ucode = $userData["user_code"];
+                $success = UserDao::getInstance()->updateWxcodeByCode($ucode, $wxcode);
+                return array($success, "", $success ? "账户激活成功" : "账户激活失败");
+            }
+        }
+        return array(false, "", "账户激活失败,请确认手机号是否正确");
+    }
+
+
+    //SKU数据版本,需要当前主仓及副仓的CODE
+    private function skuversion($warcode, $exwarcode)
+    {
+        $key = C("SKU_VERSION_KEY") . ".{$warcode}.{$exwarcode}";
+        $skuFilePath = "/home/dev/venus/Public/files/sku/latestsku.{$warcode}.{$exwarcode}.txt";
+        $skuData = "";
+        if (!file_exists($skuFilePath)) {
+            $skuData = (new SkuService())->latestsku();
+        }
+        $version = S($key);
+        if (empty($version)) {
+            $version = md5(empty($skuData) ? file_get_contents($skuFilePath) : $skuData);
+            S($key, $version, 3600 * 24 * 365);
+        }
+        return $version;
+    }
+
+
+}

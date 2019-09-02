@@ -1,0 +1,203 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: lingn
+ * Date: 2018/7/27
+ * Time: 10:59
+ */
+
+namespace Wms\Service;
+
+
+use Common\Service\PassportService;
+use Wms\Dao\GoodsDao;
+use Wms\Dao\GoodstoredDao;
+use Wms\Dao\SpuDao;
+use Wms\Dao\WorkerDao;
+
+class GoodsService
+{
+    public $warCode;
+    public $worcode;
+
+    public function __construct()
+    {
+        $workerData = PassportService::loginUser();
+        if (empty($workerData)) {
+            venus_throw_exception(110);
+        }
+
+        $this->warCode = $workerData["war_code"];
+        $this->worcode = $workerData["wor_code"];
+    }
+
+    /**
+     * @return array
+     * 库存管理
+     */
+    public function goods_search($param)
+    {
+        $warCode = $this->warCode;
+
+        if (!isset($param)) {
+            $param = $_POST;
+            $pageSize = 100;
+        } else {
+            $pageSize = 1000;
+        }
+        $data = array();
+        $tCode = $param['data']['tCode'];
+        $cgCode = $param['data']['cgCode'];
+        $spName = $param['data']['spName'];
+        $isAllGoods = $param['data']['all'];//1全部带0，2全部不带0，3库存0
+        $pageCurrent = $param['data']['pageCurrent'];//当前页数
+        $clause = array();
+        if (empty($pageCurrent)) {
+            $pageCurrent = 0;
+        }
+        if (!empty($tCode)) {
+            $clause['type'] = $tCode;
+        }
+        if (!empty($cgCode)) {
+            $clause['subtype'] = $cgCode;
+        }
+        if (!empty($spName)) {
+            $clause['%name%'] = $spName;
+        }
+        if (empty($isAllGoods)) $isAllGoods = 2;
+        if (!empty($isAllGoods)) {
+            $clause['gcount'] = $isAllGoods;
+        }
+        $goodsModel = GoodsDao::getInstance($warCode);
+        if (!empty($isAllGoods) && ($isAllGoods == 2 || $isAllGoods == 3)) {
+            $totalCount = $goodsModel->queryCountByCondition($clause);
+            $pageLimit = pageLimit($totalCount, $pageCurrent, $pageSize);
+            $goodsData = $goodsModel->queryListByCondition($clause, $pageLimit['page'], $pageLimit['pSize']);
+        } else {
+            $totalCount = $goodsModel->queryAllCountByCondition($clause);
+            $pageLimit = pageLimit($totalCount, $pageCurrent, $pageSize);
+            $goodsData = $goodsModel->queryAllListByCondition($clause, $pageLimit['page'], $pageLimit['pSize']);
+        }
+        $data = array(
+            "pageCurrent" => $pageCurrent,
+            "pageSize" => $pageLimit['pageSize'],
+            "totalCount" => $totalCount,
+        );
+
+        foreach ($goodsData as $value) {
+            $spuImg = $value['spu_code'];
+            $goodsCount = ($value['goods_count'] == intval($value['goods_count'])) ? intval($value['goods_count']) : $value['goods_count'];
+            $data['list'][] = array(
+                "spCode" => $value['spu_code'],
+                "spName" => $value['spu_name'],
+                "spNorm" => $value['spu_norm'],
+                "spCount" => $goodsCount,
+                "spUnit" => $value['spu_unit'],
+                "spBrand" => $value['spu_brand'],
+                "spCunit" => $value['spu_cunit'],
+                "spImg" => empty($spuImg) ? "_" : $spuImg . ".jpg?_=" . C("SKU_IMG_VERSION"),
+            );
+        }
+        $success = true;
+        $message = '';
+        return array($success, $data, $message);
+    }
+
+
+    /**
+     * @return array|bool
+     * 库存管理-批次详情
+     */
+    public function goods_stored()
+    {
+        $warCode = $this->warCode;
+        $data = array();
+        $clause = array();
+        $spCode = $_POST['data']['spCode'];
+        $pageCurrent = $_POST['data']['pageCurrent'];//当前页数
+        if (empty($pageCurrent)) {
+            $pageCurrent = 0;
+        }
+        if (empty($spCode)) {
+            $message = "spu编号不能为空";
+            venus_throw_exception(1, $message);
+            return false;
+        }
+        $goodstoredModel = GoodstoredDao::getInstance($warCode);
+        $goodsModel = GoodsDao::getInstance($warCode);
+
+        $totalCount = $goodstoredModel->queryCountBySpuCode($spCode);
+        $pageLimit = pageLimit($totalCount, $pageCurrent);
+        $goodstoredData = $goodstoredModel->queryListBySpuCode($spCode, $pageLimit['page'], $pageLimit['pSize']);
+        $spuData = $goodsModel->queryBySpuCode($spCode);
+        $goodsCount = ($spuData['goods_count'] == intval($spuData['goods_count'])) ? intval($spuData['goods_count']) : $spuData['goods_count'];
+        $data = array(
+            "pageCurrent" => $pageCurrent,
+            "pageSize" => $pageLimit['pageSize'],
+            "totalCount" => $totalCount,
+            "spCode" => $spuData['spu_code'],
+            "spName" => $spuData['spu_name'],
+            "spNorm" => $spuData['spu_norm'],
+            "spCount" => $goodsCount,
+            "spUnit" => $spuData['spu_unit'],
+            "spCunit" => $spuData['spu_cunit']
+        );
+
+        foreach ($goodstoredData as $value) {
+            $skuCount = ($value['sku_count'] == intval($value['sku_count'])) ? intval($value['sku_count']) : $value['sku_count'];
+            $gbCount = ($value['gb_count'] == intval($value['gb_count'])) ? intval($value['gb_count']) : $value['gb_count'];
+            $gsInit = ($value['gs_init'] == intval($value['gs_init'])) ? intval($value['gs_init']) : $value['gs_init'];
+            $gsCount = ($value['gs_count'] == intval($value['gs_count'])) ? intval($value['gs_count']) : $value['gs_count'];
+            $data['list'][] = array(
+                "gsCode" => $value['gs_code'],
+                "recCode" => $value['rec_code'],
+                "recCtime" => $value['rec_ctime'],
+                "gsNum" => $value['sku_norm'] . "*" . $skuCount . $value['sku_unit'] . "=" . $gbCount . $value['spu_unit'],
+                "sprice" => $value['gb_bprice'],
+                "totalPrice" => bcmul($value['gb_bprice'], $gsCount,2),
+                "gsInit" => $gsInit,
+                "gsCount" => $gsCount,
+                "posCode" => $value['pos_code']
+            );
+        }
+        $success = true;
+        $message = '';
+        return array($success, $data, $message);
+
+    }
+
+    /**
+     * @param $param
+     * @return array|bool
+     * 小程序购物车实时数据
+     */
+    public function apply_car_info($param)
+    {
+        $param = (!isset($param)) ? $_POST : $param;
+        $skuCodes = $param['data']['skCodes'];
+        $warCode = $this->warCode;
+        $goodsModel = GoodsDao::getInstance($warCode);
+
+        if (empty($skuCodes)) {
+            venus_throw_exception(1, "货品编号不能为空");
+            return false;
+        }
+        $skuDataList = array();
+        foreach ($skuCodes as $index => $skuItem) {
+            $skuData = $goodsModel->queryBySpuCode($skuItem);
+            $spuImg = $skuData['spu_code'];
+            $goodsCount = ($skuData['goods_count'] == intval($skuData['goods_count'])) ? intval($skuData['goods_count']) : $skuData['goods_count'];
+            $skuDataList["list"][$index] = array(
+                "spCode" => $skuData['spu_code'],
+                "spName" => $skuData['spu_name'],
+                "spNorm" => $skuData['spu_norm'],
+                "spCount" => $goodsCount,
+                "spUnit" => $skuData['spu_unit'],
+                "spBrand" => $skuData['spu_brand'],
+                "spCunit" => $skuData['spu_cunit'],
+                "spImg" => empty($spuImg) ? "_" : $spuImg . ".jpg?_=" . C("SKU_IMG_VERSION"),
+            );
+        }
+        return array(true, $skuDataList, "");
+    }
+}

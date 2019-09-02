@@ -1,0 +1,313 @@
+<?php
+
+namespace Wms\Service;
+
+use Common\Service\PassportService;
+use Wms\Dao\ProfitDao;
+use Wms\Dao\SkuDao;
+use Wms\Dao\SkudictDao;
+use Wms\Dao\WarehouseDao;
+
+class SkudictService
+{
+
+    public $waCode;
+
+    function __construct()
+    {
+        $workerData = PassportService::getInstance()->loginUser();
+        if (empty($workerData)) {
+            venus_throw_exception(110);
+        }
+        $this->waCode = $workerData["war_code"];
+    }
+
+    //查询商品信息
+    public function skudict_search()
+    {
+        $data = $_POST['data'];
+        $spName = $data['spName'];//货品名称
+        $spType = $data['spType'];//一级分类编码
+        $spSubtype = $data['spSubtype'];//二级分类编码
+        $spSupcode = $data['spSupcode'];//供货商编码
+        $pageCurrent = $data['pageCurrent'];//当前页码
+        $pageSize = 100;//当前页面总条数
+
+        $condition = array();
+        if (!empty($spName) && preg_match("/^[a-z]/i", $spName)) {//货品编码
+            $condition['spcode'] = $spName;
+        }
+
+        if (!empty($spName) && !preg_match("/^[a-z]/i", $spName)) {//货品名称
+            $condition['%name%'] = $spName;
+        }
+
+        if (!empty($spType)) {//一级分类编号
+            $condition['sputype'] = $spType;
+        }
+
+        if (!empty($spSubtype)) {//二级分类
+            $condition['spusubtype'] = $spSubtype;
+        }
+
+        if (!empty($spSupcode)) {//供货商编码
+            $condition['supcode'] = $spSupcode;
+        }
+
+        //当前页码
+        if (empty($pageCurrent)) {
+            $pageCurrent = 0;
+        }
+
+        $SkuDictDao = SkudictDao::getInstance();
+        $totalCount = $SkuDictDao->queryCountByCondition($condition);//获取指定条件的总条数
+
+        $pageLimit = pageLimit($totalCount, $pageCurrent);
+        $results = $SkuDictDao->queryListByCondition($condition, $pageLimit['page'], $pageLimit['pSize']);
+        if (empty($results)) {
+            $skuDictlist = array(
+                "pageCurrent" => 0,
+                "pageSize" => 100,
+                "totalCount" => 0
+            );
+            $skuDictlist["list"] = array();
+        } else {
+            $skuDictlist = array(
+                "pageCurrent" => $pageCurrent,
+                "pageSize" => $pageSize,
+                "totalCount" => $totalCount
+            );
+            foreach ($results as $index => $skuDictItem) {
+
+                $spMark = $skuDictItem['spu_mark'];
+                $skuDictlist["list"][$index] = array(
+                    "spCode" => $skuDictItem['spu_code'],//spu编号
+                    "skCode" => $skuDictItem['sku_code'],//sku编号
+                    "spName" => $skuDictItem['spu_name'] . (!empty($spMark) ? "({$spMark})" : ""),//spu货品名称
+                    "spNorm" => $skuDictItem['spu_norm'],//spu规格
+                    "spCunit" => $skuDictItem['spu_cunit'],//单位
+                    "spUnit" => $skuDictItem['spu_unit'],//单位
+                    "spBrand" => $skuDictItem['spu_brand'],//品牌
+                    "spFrom" => $skuDictItem['spu_from'],//产地
+                    "spType" => $skuDictItem['spu_type'],//一级分类
+                    "sptypeName" => venus_spu_type_name($skuDictItem['spu_type']),//一级分类名称
+                    "spSubtype" => $skuDictItem['spu_subtype'],//二级分类
+                    "spsubtypeName" => venus_spu_catalog_name($skuDictItem['spu_subtype']),//二级分类名称
+                    "spreptype" => $skuDictItem['spu_reptype'],//二级分类名称
+                    "spreptypeName" => venus_spu_reptype_name($skuDictItem['spu_reptype']),//二级分类名称
+                    "spTgtype" => $skuDictItem['spu_storetype'],//仓储方式
+                    "sptgtypeName" => venus_spu_storage_desc($skuDictItem['spu_storetype']),//仓储方式名称
+                    "suCode" => $skuDictItem['sup_code'],//当前供货商编号
+                    "sucodeName" => $skuDictItem['sup_name']//当前供货商名称
+                );
+            }
+        }
+        return array(true, $skuDictlist, "");
+    }
+
+    //创建商品字典,面向sku和spu两张表
+    public function skudict_create()
+    {
+
+        $data = $_POST['data'];
+        $spType = $data['spType'];//一级分类编码
+        $spSubtype = $data['spSubtype'];//二级分类编码
+        $spTgtype = $data['spTgtype'];//仓储方式
+        $spName = $data['spName'];//货品名称
+        $spBrand = $data['spBrand'];//品牌
+        $spFrom = $data['spFrom'];//产地
+        $suCode = $data['suCode'];//供货商编码
+        $spNorm = $data['spNorm'];//规格
+        $spUnit = $data['spUnit'];//单位
+        $spCunit = $data['spCunit'];//最小单位规格
+        $spMark = $data['spMark'];//备注
+        $spreptype = $data['spReptypeCode'];//报表分类
+
+        if (empty($spType)) {
+            venus_throw_exception(1, "一级分类不能为空");
+            return false;
+        }
+
+        if (empty($spSubtype)) {
+            venus_throw_exception(1, "二级分类不能为空");
+            return false;
+        }
+        if (empty($spTgtype)) {
+            venus_throw_exception(1, "仓储方式不能为空");
+            return false;
+        }
+        if (empty($spName)) {
+            venus_throw_exception(1, "货品名称不能为空");
+            return false;
+        }
+        if (empty($spBrand)) {
+            venus_throw_exception(1, "品牌不能为空");
+            return false;
+        }
+        if (empty($suCode)) {
+            venus_throw_exception(1, "供货商不能为空");
+            return false;
+        }
+        if (empty($spNorm)) {
+            venus_throw_exception(1, "品牌不能为空");
+            return false;
+        }
+        if (empty($spUnit)) {
+            venus_throw_exception(1, "单位不能为空");
+            return false;
+        }
+        if (empty($spCunit)) {
+            venus_throw_exception(1, "单位不能为空");
+            return false;
+        }
+        if (empty($spreptype)) {
+            venus_throw_exception(1, "报表分类不能为空");
+            return false;
+        }
+        $skuDictdata = array(
+            "spucode" => "",
+            "skucode" => "",
+            "spuname" => $spName,
+            "spubrand" => $spBrand,
+            "spuabname" => "",
+            "sputype" => $spType,
+            "spusubtype" => $spSubtype,
+            "spureptype" => $spreptype,
+            "spustoretype" => $spTgtype,
+            "spufrom" => $spFrom,
+            "spunorm" => $spNorm,
+            "spucunit" => $spCunit,
+            "spuunit" => $spUnit,
+            "spumark" => $spMark,
+            "supcode" => $suCode,
+        );
+        $skuCreate = SkudictDao::getInstance()->insert($skuDictdata);
+        if ($skuCreate) {
+            $success = true;
+            $message = "货品添加成功";
+            SkuService::release_latestsku();//清空本地缓存
+        } else {
+            $success = false;
+            $message = "货品添加失败";
+        }
+        return array($success, "", $message);
+    }
+
+    //删除商品字典
+    public function skudict_delete()
+    {
+        $spCode = $_POST['data']['spCode'];
+        $skCode = $_POST['data']['skCode'];
+        if (empty($spCode)) {
+            venus_throw_exception(1, "货品编号不能为空");
+            return false;
+        }
+
+        $spDel = SkudictDao::getInstance()->deleteByCode($spCode);
+        $skDel = SkuDao::getInstance()->updateStatusCodeByCode($skCode);
+        if ($spDel && $skDel) {
+            $success = true;
+            $message = "货品删除成功";
+            SkuService::release_latestsku();//清空本地缓存
+        } else {
+            $success = false;
+            $message = "货品删除失败(不能删除科贸货品)";
+        }
+        return array($success, "", $message);
+    }
+
+    //修改商品供货商
+    public function skudict_change_supplier()
+    {
+        $spCode = $_POST['data']['spCode'];
+        $suCode = $_POST['data']['suCode'];
+        if (empty($spCode)) {
+            venus_throw_exception(1, "货品编号不能为空");
+            return false;
+        }
+        if (empty($suCode)) {
+            venus_throw_exception(1, "供货商编号不能为空");
+            return false;
+        }
+
+        $supUpdate = SkudictDao::getInstance()->updateSupByCode($spCode, $suCode);
+        if ($supUpdate) {
+            $success = true;
+            $message = "修改货品供货商成功";
+        } else {
+            $success = false;
+            $message = "修改货品供货商失败(不能修改科贸货品供货商)";
+        }
+        return array($success, "", $message);
+
+    }
+
+    //修改商品报表分类
+    public function skudict_change_reptype()
+    {
+        $spCode = $_POST['data']['spCode'];
+        $spuReptypeCode = $_POST['data']['spReptypeCode'];
+        if (empty($spCode)) {
+            venus_throw_exception(1, "货品编号不能为空");
+            return false;
+        }
+        if (empty($spuReptypeCode)) {
+            venus_throw_exception(1, "报表分类编号不能为空");
+            return false;
+        }
+
+        $updateRes = SkudictDao::getInstance()->updateSpureptypeByCode($spCode, $spuReptypeCode);
+        if ($updateRes) {
+            $success = true;
+            $message = "修改货品报表分类成功";
+        } else {
+            $success = false;
+            $message = "修改货品报表分类失败";
+        }
+        return array($success, "", $message);
+
+    }
+
+    //验证并创建商品字典
+    public function valid_and_create_skudict($skudictData)
+    {
+        if (!empty($skudictData)) {
+            $skuDictdao = SkudictDao::getInstance();
+            $skuDictresult = $skuDictdao->queryByCode($skudictData['spCode']);
+            if (empty($skuDictresult)) {
+                $data = array(
+                    "spucode" => $skudictData['spCode'],
+                    "skucode" => $skudictData['skCode'],
+                    "spuname" => $skudictData["spName"],
+                    "spuabname" => $skudictData["spAbname"],
+                    "sputype" => $skudictData["spType"],
+                    "spusubtype" => $skudictData["spSubtype"],
+                    "spustoretype" => $skudictData["spStoretype"],
+                    "spubrand" => $skudictData["spBrand"],//品牌
+                    "spufrom" => $skudictData["spFrom"],//产地
+                    "spunorm" => $skudictData["spNorm"],//规格
+                    "spucunit" => $skudictData["spCunit"],//最小计量单位1,0.1,0.01
+                    "spuunit" => $skudictData["spUnit"],//单位
+                    "spumark" => $skudictData["spMark"],//备注
+                    "sup_code" => $skudictData['supCode'],//供应商编码
+                );
+                $skudictInsert = $skuDictdao->insert($data);//skucode,spu
+                if ($skudictInsert) {
+                    $success = true;
+                } else {
+                    $success = false;
+                }
+            } else {
+                $success = true;
+            }
+        } else {
+            $success = true;
+        }
+        return $success;
+
+    }
+
+}
+
+
+

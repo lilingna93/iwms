@@ -1,0 +1,51 @@
+<?php
+namespace Manage\Controller;
+
+use Common\Service\PassportService;
+use Think\Controller;
+use Wms\Dao\WarehouseDao;
+
+
+class IndexController extends Controller {
+
+    public function cli() {
+    }
+
+    public function index() {
+        $workerData = PassportService::loginUser();
+        if(empty($workerData)){
+            $this->redirect("http://".C("WMS_HOST")."/manage/login");
+            return;
+        }
+
+        $config = array(
+            "appname"=>"餐饮公司仓库系统",
+            "host"=>C("WMS_HOST"),
+            "user" => array(
+                "name"  => $workerData["wor_name"],
+                "code"  => $workerData["wor_code"],
+                "auth"  => $workerData["wor_auth"],
+                "rname" => $workerData["wor_rname"],
+                "token" => $workerData["wor_token"],
+                "phone" => $workerData["wor_phone"],
+                "warcode" => $workerData["war_code"],
+                "warname" => $workerData["war_name"],
+
+            ),
+            "warehouse" => $workerData["warehouses"],
+            "receipt_type"=>$workerData["receipt_type"],
+            "invoice_type"=>$workerData["invoice_type"],
+            "suppliers" => $workerData["suppliers"],
+            "rooms"  => empty($workerData["rooms"])?array():explode(",",$workerData["rooms"]),//当前所属仓库所办函的餐厅信息
+            "type" => C("SPU_TYPE"),
+            "subtype" => C("SPU_SUBTYPE"),
+            "storage" => array(array("name"=>"常温","code"=>"1"),array("name"=>"冷冻","code"=>"2")),
+            "cunit"   => array("1","0.1","0.01"),
+            "version" => C("VERSION"),
+        );
+
+        $this->assign('config', json_encode($config));
+        $this->display();
+    }
+    
+}
